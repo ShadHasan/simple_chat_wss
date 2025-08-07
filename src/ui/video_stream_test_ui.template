@@ -116,7 +116,7 @@
 
 		class ClientChatLib {
             // WebSocket connection URL (replace with your own URL)
-            wsUrl = '{{ proto }}://{{ wss_host }}:{{ wss_port }}/ws_video_v2';
+            wsUrl = '{{ proto }}://{{ wss_host }}:{{ wss_port }}/ws_video_test';
 
             socket = null;
 
@@ -257,8 +257,6 @@
 				}
 			});
 		}
-
-
 
 
 		startPreview.addEventListener("click", () => {

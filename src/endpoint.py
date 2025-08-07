@@ -616,6 +616,13 @@ async def broadcaster_channel(channel: str, streamer: str):
     chunk = await run_in_threadpool(stream_ws_manager.get_chunk_of_channel, channel, streamer)
     return StreamingResponse(chunk, media_type="multipart/x-mixed-replace;boundary=frame")
 
+# ============= Video streaming behavior test====================
+
+
+@app.get("/test/video")
+async def broadcaster_channel():
+    return {"result": None}
+
 # ============= (Deprecated) Old reply UI for chatbot design =================
 
 

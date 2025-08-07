@@ -20,7 +20,7 @@ HOST_APP_PORT=10008
 #HOST_APP_DOMAIN=ubiquitous.tinyorb.org
 
 # This is only for local testing
-HOST_APP_DOMAIN=192.168.217.197
+HOST_APP_DOMAIN=192.168.106.197
 
 # if it is SSL and PROTOCOL WSS
 SSL=true
