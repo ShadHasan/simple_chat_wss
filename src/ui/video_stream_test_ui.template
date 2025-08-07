@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html class="use-all-space">
+	<head>
+		<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+		<meta charset="UTF-8" />
+		<meta
+		  name="viewport"
+		  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+		/>
+		<title>Test Camera</title>
+		<style>
+			body {
+				width: 100%;
+				height: 100%;
+				display: flex;
+				justify-content: center;
+				background: lightgray;
+			}
+			th {
+				background: #22B14C;
+				th: 15px;
+			}
+			tr {
+				padding: 15px;
+			}
+			#total {
+				margin: 10px;
+			}
+			#main {
+				display:flex;
+				flex-direction: column;
+				width:100%;
+			}
+			#camera_interface {
+				display:flex;
+				flex-direction: row;
+				width:100%;
+				justify-content: center;
+			}
+		</style>
+	</head>
+  <body>
+	<div id="main">
+		<div id="log" style="display:none;backgorund:yellow;padding:10px;position:fixed;"> </div>
+		<div id="camera_interface" style="width:100%;">
+			<div class="left" style="margin:10px;width:42%;">
+				<button id="startPreview" class="button">Start Preview</button> <button id="stopPreview" class="button">Stop Preview</button>
+				<h2>Preview</h2>
+				<video id="preview" width="160" height="120" autoplay muted style="margin:10px;"></video>
+			</div>
+		
+			<div class="right" style="margin:10px;width:42%;">
+			    <button id="startStreaming" class="button">Start Streaming</button><button id="stopStreaming" class="button">Stop Streaming</button>
+				<h2>Stream preview</h2>
+				<video id="streaming" width="160" height="120" autoplay style="margin:10px;"></video> <br>
+			</div>
+	</div>
+	
+	<script>
+		function log(msg) {
+			let logElement = document.getElementById("log");
+			logElement.innerText += `${msg}`;
+		}
+		
+		function wait(delayInMS) {
+		  return new Promise((resolve) => setTimeout(resolve, delayInMS));
+		}
+		
+		let preview = document.getElementById("preview");
+		let streaming = document.getElementById("streaming");
+		let startPreview = document.getElementById("startPreview");
+		let stopPreview = document.getElementById("stopPreview");
+		let startStreaming = document.getElementById("startStreaming");
+		let stopStreaming = document.getElementById("stopStreaming");
+		let logElement = document.getElementById("log");
+		let intervalController = null;
+		let stream_play = false;
+		let stream_vid_list = [];
+		let collect_blob = [];
+
+		let recordingTimeMS = 1000;
+
+		function enable_stream_play() {
+            stream_play = true;
+            if (stream_vid_list.length > 0) {
+                streaming.src = stream_vid_list.shift();
+            }
+
+		}
+
+		function load_response_stream(res) {
+		    if (!stream_play) {
+		        let res_url = URL.createObjectURL(res);
+		        stream_vid_list.push(res_url);
+		        enable_stream_play();
+		    } else {
+		        collect_blob.push(res);
+		    }
+		    //console.log("response in play");
+		}
+
+		streaming.addEventListener("ended", () => {
+		    let next_index = collect_blob.length;
+		    if (next_index > 0) {
+                let temp_bloc_coll = []
+                 for (let i=0; i<next_index; i++) {
+                    temp_bloc_coll.push(collect_blob.shift());
+                 }
+                 let res_url = URL.createObjectURL(new Blob(temp_bloc_coll));
+		        stream_vid_list.push(res_url);
+		     }
+            if (stream_vid_list.length > 0) {
+                streaming.src = stream_vid_list.shift();
+            }
+        });
+
+		class ClientChatLib {
+            // WebSocket connection URL (replace with your own URL)
+            wsUrl = '{{ proto }}://{{ wss_host }}:{{ wss_port }}/ws_video_v2';
+
+            socket = null;
+
+            constructor(alt_name, alt_pass, channel, channel_key, salt) {
+                this.alt_name = alt_name;
+                this.alt_pass = alt_pass;
+                this.channel = channel;
+                this.channel_key = channel_key;
+                this.salt = salt;
+            }
+
+            start_stream() {
+
+                // Create a new WebSocket connection
+                this.socket = new WebSocket(this.wsUrl);
+
+                // Listener for If the connection is closed
+                this.socket.addEventListener('open', (event) => {
+                  console.log('WebSocket is connected');
+                });
+
+                // Listener for If there's an error with the WebSocket connection
+                this.socket.addEventListener('error', (error) => {
+                  console.error('WebSocket Error:', error);
+
+                });
+
+                // Listener for If the connection is closed
+                this.socket.addEventListener('close', () => {
+                  console.log('WebSocket connection closed');
+                });
+
+                // load coming message
+                this.socket.onmessage = function(event) {
+                    //console.log(event.data);
+                  load_response_stream(event.data);
+                }
+
+            }
+
+            stream_conference(b_tes) {
+                if (this.socket.readyState == WebSocket.OPEN) {
+                    this.socket.send(b_tes);
+                }
+            }
+
+        }
+
+        let client_chat_lib = new ClientChatLib(
+            "alt_name", "alt_pass", "default", "ch_key");
+		
+		function recording(stream, lengthInMS) {
+			let recorder = new MediaRecorder(stream);
+			let data = [];
+
+			recorder.ondataavailable = (event) => data.push(event.data);
+			recorder.start();
+			log(`${recorder.state} for ${lengthInMS / 1000} seconds…`);
+
+			let stopped = new Promise((resolve, reject) => {
+				recorder.onstop = resolve;
+				recorder.onerror = (event) => reject(event.name);
+			});
+
+			let recorded = wait(lengthInMS).then(() => {
+				if (recorder.state === "recording") {
+					recorder.stop();
+				}
+			});
+
+			return Promise.all([stopped, recorded]).then(() => data);
+		}
+
+		function stop_preview_stream(stream) {
+		    console.log(client_chat_lib.socket);
+		    if (client_chat_lib.socket !== null) {
+		        client_chat_lib.socket.close();
+		        client_chat_lib.socket = null ;
+		    }
+		    if (intervalController !== null) {
+		        clearInterval(intervalController);
+		        intervalController = null;
+		    }
+			stream.getTracks().forEach((track) => track.stop());
+		}
+
+		startStreaming.addEventListener("click",
+                () => {
+                    if (intervalController === null) {
+                        intervalController = setInterval( () => {
+                            if (preview.srcObject !== null) {
+                                recording(preview.captureStream(), recordingTimeMS)
+                                .then((recordedChunks) => {
+                                    let recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
+                                    client_chat_lib.stream_conference(recordedBlob);
+                                })
+                                .catch((error) => { log(error); });
+                            }
+                        }, recordingTimeMS);
+                    }
+                }
+			);
+
+            stopStreaming.addEventListener("click",
+                () => {
+                    if (preview.srcObject !== null) {
+                        stop_preview_stream(preview.srcObject);
+                    }
+                },
+                false,
+            );
+
+		function streamRegister(stream_element) {
+		    // it is dummy function
+            client_chat_lib.start_stream();
+            console.log("stream is set, press streaming");
+		}
+
+		function start_preview_stream() {
+			navigator.mediaDevices.getUserMedia({
+				video: true,
+				audio: true,
+			})
+			.then((stream) => {
+				preview.srcObject = stream;
+				preview.captureStream =
+					preview.captureStream || preview.mozCaptureStream;
+				return new Promise((resolve) => {
+					preview.onplaying = resolve;
+				});
+			})
+			.then(() => streamRegister(preview))
+			.catch((error) => {
+				if (error.name === "NotFoundError") {
+					log("Camera or microphone not found. Can't record.");
+				} else {
+					log(error);
+				}
+			});
+		}
+
+
+
+
+		startPreview.addEventListener("click", () => {
+		    start_preview_stream();
+		});
+
+		stopPreview.addEventListener("click", () => {
+		    if (preview.srcObject !== null) {
+                stop_preview_stream(preview.srcObject);
+            }
+		});
+
+	</script>
+
+	</body>
+	
+</html>

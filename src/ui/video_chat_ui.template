@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat Interface</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f1f1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+
+    /* Agent List Section */
+    .chat_manage {
+      background-color: #fff;
+      padding: 10px 15px;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      justify-content: space-between;
+      overflow-x: auto;
+    }
+
+    .chat_manage_button {
+      background-color: #eee;
+      padding: 10px 15px;
+      border-radius: 20px;
+      margin-right: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .chat_manage_label {
+      background-color: #eee;
+      padding: 10px 15px;
+      border-radius: 20px;
+      margin-right: 10px;
+    }
+
+    .chat_manage_input {
+      background-color: #eee;
+      padding: 10px 15px;
+      border-radius: 20px;
+      margin-right: 10px;
+    }
+
+    .simulator {
+      background-color: orange;
+      padding: 10px 15px;
+      border-radius: 10px;
+      margin-right: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      outline: none;
+    }
+
+    .agent.active {
+      background-color: #0084ff;
+      color: white;
+    }
+
+
+    .message {
+      max-width: 60%;
+      margin: 5px 0;
+      padding: 10px 15px;
+      border-radius: 15px;
+      clear: both;
+    }
+
+    .incoming {
+      background-color: #e0e0e0;
+      align-self: flex-start;
+    }
+
+    .outgoing {
+      background-color: #0084ff;
+      color: white;
+      align-self: flex-end;
+    }
+
+    #broadcast_players {
+      flex: 1;
+      display: flex;
+      padding: 10px;
+      background-color: white;
+      border-top: 1px solid #ccc;
+      flex-wrap: wrap;
+    }
+
+    video {
+        overflow: unset;
+        object-fit: fill;
+        overflow-clip-margin: unset;
+        height: 100%;
+        width: 100%;
+    }
+
+    .div_video_cover {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 20px;
+        width: 400px;
+        height: 250px;
+    }
+
+    .class_video_player {
+      outline: none;
+    }
+
+    #alt_login {
+        height: 100%;
+        width: 100%;
+        justify-content: center;
+        display: flex;
+    }
+
+    #after_login_ui {
+        height: 100%;
+        width: 100%;
+        flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+    <div id="alt_login">
+        <table id="alt_login_table">
+            <tr>
+                <td>
+                    <label class="chat_manage_label" for="alt_login_name"> Alt name </label>
+                    <input class="chat_manage_input" id="alt_login_name" type="text" placeholder="minimum 3 character"/><br>
+                    <label class="chat_manage_label" for="alt_login_pass"> Password </label>
+                    <input class="chat_manage_input" id="alt_login_pass" type="password" placeholder="minimum 8 character"/><br>
+                    <button class="chat_manage_button" id="create_alt" onclick="create_alt()"> Create </button>
+                    <button class="chat_manage_button" id="link_alt" onclick="link_alt()"> Link </button>
+                    <div class="chat_manage_input" id="alt_login_message"> <div/>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div id="after_login_ui" style="display:none;">
+        <div class="chat_manage" id="chat_manage">
+            <div>
+                <label class="chat_manage_label" for="alt_name"> Alt name </label>
+                <span style="background:yellow;" id="alt_name"> </span>
+            </div>
+            <div>
+                <button class="chat_manage_button" id="admin_panel"> Admin Panel </button>
+            </div>
+            <div id="channel_open">
+                <input class="chat_manage_input" id="channel_id" type="text"  placeholder="Enter channel id..."/>
+                <button class="chat_manage_button" id="join"> Join </button>
+                <button class="chat_manage_button" id="new_channel" onclick="create_channel()"> New Channel </button>
+            </div>
+            <div id="channel_close" style="display:none">
+                <button class="chat_manage_button" id="disconnect"> Disconnect </button>
+            </div>
+        </div>
+
+        <div id="broadcast_players">
+            <div class="div_video_cover"><video id="base_0" autoplay muted class="class_video_player"></video></div>
+        </div>
+
+    </div>
+    <div id="admin_ui" style="display:none;width:100%;height:100%;justify-content:center;flex-direction:column;">
+        <div id="admin_channel_table" style="justify-content:center;display:flex;"> </div>
+        <button class="chat_manage_button" id="close_admin_panel"> Close window </button>
+    </div>
+
+  <script>
+        function log(msg) {
+			console.log(`${msg}`);
+		}
+
+		function wait(delayInMS) {
+		  return new Promise((resolve) => setTimeout(resolve, delayInMS));
+		}
+
+        let preview = document.getElementById("base_0");
+        globalThis.alt_name = "";
+        globalThis.alt_pass = "";
+        globalThis.channel = "";
+        globalThis.stream_id = "";
+        globalThis.stream_interval_controller = null;
+        globalThis.recordingTimeMS = 1000;
+        globalThis.streamer_list = [];
+        let intervalController = null;
+        globalThis.stream_control = true;
+
+        function process_channel_streamer_data(stream_resp_data) {
+            stream_resp_data = JSON.parse(stream_resp_data);
+            let parent_player_group_element = document.getElementById("broadcast_players");
+            console.log(stream_resp_data, globalThis.stream_id, stream_resp_data.live_streamer);
+            let personal_stream_index = stream_resp_data.live_streamer.indexOf(globalThis.stream_id);
+            let new_streamer_list = [...stream_resp_data.live_streamer];
+            new_streamer_list.splice(personal_stream_index, 1);
+            let previous_streamers = [...globalThis.streamer_list];
+            globalThis.streamer_list = new_streamer_list;
+
+            let streamer_to_be_added = new_streamer_list.filter((e) => !previous_streamers.includes(e));
+            let streamer_to_be_removed = previous_streamers.filter((e) => !new_streamer_list.includes(e));
+
+            // adding all broadcast of streamer
+            for (let i = 0; i < streamer_to_be_added.length; i++) {
+                let determine_cover_element = `div_${streamer_to_be_added[i]}`;
+                let determine_vid_element = `vid_${streamer_to_be_added[i]}`;
+                let video_ele = document.createElement("video");
+                video_ele.setAttribute("id", determine_vid_element);
+                video_ele.setAttribute("class", "class_video_player");
+                video_ele.setAttribute("src", `/broadcast_v2/${globalThis.channel}/${streamer_to_be_added[i]}`);
+                video_ele.setAttribute("type", "video/webm");
+
+                let video_cover_ele = document.createElement("div");
+                video_cover_ele.setAttribute("id", determine_cover_element);
+                video_cover_ele.setAttribute("class", "div_video_cover");
+                video_cover_ele.setAttribute("type", "video/webm");
+
+                video_cover_ele.appendChild(video_ele);
+                parent_player_group_element.appendChild(video_cover_ele);
+                video_ele.addEventListener("loadeddata", (event) => {
+                    video_ele.autoplay = true;
+                });
+
+            }
+
+            // removing broadcast of streamer
+            for (let i = 0; i < streamer_to_be_removed.length; i++) {
+                let determine_cover_element = `div_${streamer_to_be_removed[i]}`;
+                let determine_vid_element = `vid_${streamer_to_be_removed[i]}`;
+
+                let del_2 = document.getElementById(determine_cover_element);
+                del_2.removeChild(document.getElementById(determine_vid_element));
+
+                parent_player_group_element.removeChild(del_2);
+            }
+            globalThis.stream_control = true;
+
+        }
+
+		class ClientChatLib {
+            // WebSocket connection URL (replace with your own URL)
+            wsUrl = '{{ proto }}://{{ wss_host }}:{{ wss_port }}/ws_video_v2';
+
+            socket = null;
+
+            constructor(alt_name, alt_pass, channel, stream_id, salt) {
+                this.alt_name = alt_name;
+                this.alt_pass = alt_pass;
+                this.channel = channel;
+                this.stream_id = stream_id;
+                this.salt = salt;
+            }
+
+            start_stream() {
+
+                // Create a new WebSocket connection
+                this.socket = new WebSocket(`${this.wsUrl}/${this.channel}/${this.stream_id}`);
+
+                // Listener for If the connection is closed
+                this.socket.addEventListener('open', (event) => {
+                  console.log('WebSocket is connected');
+                });
+
+                // Listener for If there's an error with the WebSocket connection
+                this.socket.addEventListener('error', (error) => {
+                  console.error('WebSocket Error:', error);
+
+                });
+
+                // Listener for If the connection is closed
+                this.socket.addEventListener('close', () => {
+                  console.log('WebSocket connection closed');
+                });
+
+                // load coming message
+                this.socket.onmessage = function(event) {
+                    //console.log(event.data);
+                  process_channel_streamer_data(event.data);
+                }
+
+            }
+
+            stream_conference(b_tes) {
+                if (this.socket.readyState == WebSocket.OPEN) {
+                    this.socket.send(b_tes);
+                }
+            }
+
+        }
+
+        // Preview play and load on page start
+		function preview_play() {
+			navigator.mediaDevices.getUserMedia({
+				video: true,
+				audio: true,
+			})
+			.then((stream) => {
+				preview.srcObject = stream;
+				preview.captureStream =
+					preview.captureStream || preview.mozCaptureStream;
+				return new Promise((resolve) => {
+					preview.onplaying = resolve;
+				});
+			})
+			.then(() => {/* do nothing */})
+			.catch((error) => {
+				if (error.name === "NotFoundError") {
+					log("Camera or microphone not found. Can't record.");
+				} else {
+					log(error);
+				}
+			});
+		}
+
+        preview_play();
+
+        // recording video chunk
+        function recording(stream, lengthInMS) {
+			let recorder = new MediaRecorder(stream);
+			let data = [];
+
+			recorder.ondataavailable = (event) => data.push(event.data);
+			recorder.start();
+			log(`${recorder.state} for ${lengthInMS / 1000} seconds…`);
+
+			let stopped = new Promise((resolve, reject) => {
+				recorder.onstop = resolve;
+				recorder.onerror = (event) => reject(event.name);
+			});
+
+			let recorded = wait(lengthInMS).then(() => {
+				if (recorder.state === "recording") {
+					recorder.stop();
+				}
+			});
+
+			return Promise.all([stopped, recorded]).then(() => data);
+		}
+
+
+        // Create stream and join channel for the stream then start streaming to the channel
+        function start_streaming(client_chat_lib) {
+            if (intervalController === null) {
+                intervalController = setInterval( () => {
+                    if (preview.srcObject !== null && globalThis.stream_control) {
+                        globalThis.stream_control = false;
+                        recording(preview.captureStream(), recordingTimeMS)
+                        .then((recordedChunks) => {
+                            let recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
+                            client_chat_lib.stream_conference(recordedBlob);
+                        })
+                        .catch((error) => { log(error); });
+                    }
+                }, recordingTimeMS);
+            }
+        }
+
+
+
+        function initiate_join_stream(response) {
+            if (response.streaming_id !== null) {
+                globalThis.stream_id = response.streaming_id;
+                new Promise((resolve, reject) => {
+                        resolve(
+                            new ClientChatLib("alt_name", "alt_pass", globalThis.channel, globalThis.stream_id)
+                        );
+                    })
+                .then( (client_chat_lib) => new Promise((resolve, reject) => {
+                        client_chat_lib.start_stream();
+                        resolve(client_chat_lib);
+                    }) )
+                .then( (client_chat_lib) => { start_streaming(client_chat_lib); })
+                .catch((err) => {
+                    console.log("Error", err);
+                });
+            } else {
+                console.log("Streaming initiation failed");
+            }
+        }
+
+        function get_stream_details() {
+            fetch("/conference_manage", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    "action": "request_stream",
+                    "channel_id": globalThis.channel,
+                    "alt_login_name": document.getElementById("alt_login_name").value,
+                    "alt_login_pass": document.getElementById("alt_login_pass").value
+                }),
+            })
+            .then(response => response.json())
+            .then(data => initiate_join_stream(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        document.getElementById("join").addEventListener("click", function(){
+            globalThis.channel = document.getElementById("channel_id").value;
+            globalThis.stream_control = true;
+            get_stream_details();
+        });
+
+
+        // Login and Sign up related functionality
+
+        function process_login(response) {
+            console.log(response);
+            if (response.result) {
+                document.getElementById("after_login_ui").style.display = "flex";
+                document.getElementById("alt_login").style.display = "none";
+                document.getElementById("alt_name").textContent = globalThis.alt_name;
+            } else {
+                document.getElementById("alt_login_message").textContent = "Error try incorrect login";
+            }
+        }
+
+        function process_create(response) {
+            console.log(response);
+            if (response.result) {
+                document.getElementById("alt_login_message").textContent = "created";
+            } else {
+                document.getElementById("alt_login_message").textContent = "Error try giving another alt name";
+            }
+        }
+
+        function link_alt() {
+            globalThis.alt_name = document.getElementById("alt_login_name").value;
+            globalThis.alt_pass = document.getElementById("alt_login_pass").value
+            fetch("/alt_manager", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    "action": "link",
+                    "alt_login_name": document.getElementById("alt_login_name").value,
+                    "alt_login_pass": document.getElementById("alt_login_pass").value
+                }),
+            })
+            .then(response => response.json())
+            .then(data => process_login(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        function create_alt() {
+            fetch("/alt_manager", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    "action": "create",
+                    "alt_login_name": document.getElementById("alt_login_name").value,
+                    "alt_login_pass": document.getElementById("alt_login_pass").value
+                }),
+            })
+            .then(response => response.json())
+            .then(data => process_create(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        // Create channel related functionality start from here
+
+        function load_channel(response) {
+            console.log(response);
+            if (response.channel_id !== null) {
+                document.getElementById("channel_id").value = response.channel_id;
+            } else {
+                console.log("something went wrong");
+            }
+        }
+
+        function create_channel() {
+            fetch("/conference_manage", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    "action": "create_channel",
+                    "alt_login_name": globalThis.alt_name,
+                    "alt_login_pass": globalThis.alt_pass
+                }),
+            })
+            .then(response => response.json())
+            .then(data => load_channel(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        // Create and remove member from the channel
+
+        function process_response_channel_administration(response) {
+            console.log("process response", response);
+        }
+
+        function process_add_and_remove_member_to_channel(response) {
+            if (response.result) {
+                console.log("ok added member");
+            } else {
+                console.log("not ok to add member");
+            }
+        }
+
+        function add_member_to_channel(channel_id, member) {
+            if ( member.length > 0) {
+                fetch("/conference_manage", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        "action": "add_member",
+                        "member": member,
+                        "channel_id": channel_id,
+                        "alt_login_name": globalThis.alt_name,
+                        "alt_login_pass": globalThis.alt_pass
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => process_add_and_remove_member_to_channel(data))
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+            } else {
+                console.log("no member provided");
+            }
+        }
+
+        function remove_member_to_channel(channel_id, member) {
+            if ( member.length > 0) {
+                fetch("/conference_manage", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        "action": "remove_member",
+                        "member": member,
+                        "channel_id": channel_id,
+                        "alt_login_name": globalThis.alt_name,
+                        "alt_login_pass": globalThis.alt_pass
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => process_add_and_remove_member_to_channel(data))
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+            } else {
+                console.log("no member provided");
+            }
+        }
+
+        // Launching, managing and closing of admin panel
+
+        function register_admin_panel_elements_event_listener() {
+            let admin_closed_checkbox_elements = document.getElementsByClassName("admin_channel_closed_class");
+            let admin_open4all_checkbox_elements = document.getElementsByClassName("admin_channel_open4all_class");
+            let admin_remove_member_button_elements = document.getElementsByClassName("admin_channel_remove_member");
+            let admin_add_member_input_elements = document.getElementsByClassName("admin_channel_add_member");
+
+            for (let i = 0; i < admin_closed_checkbox_elements.length; i++) {
+                admin_closed_checkbox_elements[i].addEventListener("click", function(event) {
+
+                    console.log(event.target);
+                });
+            }
+
+            for (let i = 0; i < admin_open4all_checkbox_elements.length; i++) {
+                admin_open4all_checkbox_elements[i].addEventListener("click", function(event) {
+                    console.log(event.target);
+                });
+            }
+
+            for (let i = 0; i < admin_remove_member_button_elements.length; i++) {
+                admin_remove_member_button_elements[i].addEventListener("click", function(event) {
+                     console.log(event.target);
+                     document.getElementById("close_admin_panel").click();
+                });
+            }
+
+            for (let i = 0; i < admin_add_member_input_elements.length; i++) {
+                admin_add_member_input_elements[i].addEventListener("change", function(event) {
+                     console.log(event.target);
+                     let member = event.target.value;
+                     let channel_id = event.target.getAttribute("val1");
+                     add_member_to_channel(channel_id, member);
+                     document.getElementById("close_admin_panel").click();
+                });
+            }
+
+            /* // only for debug
+            console.log(admin_closed_checkbox_elements);
+            console.log(admin_open4all_checkbox_elements);
+            console.log(admin_remove_member_button_elements);
+            console.log(admin_add_member_button_elements);
+            */
+        }
+
+        function load_admin_panel(response) {
+            document.getElementById("after_login_ui").style.display = "none";
+            document.getElementById("admin_ui").style.display = "flex";
+            document.getElementById("admin_channel_table").innerHTML = response.result;
+
+            // Once admin table is loaded start registering event for its lots of elements.
+            document.getElementById("admin_manage_table_table").addEventListener("load", function(event){
+                register_admin_panel_elements_event_listener();
+            });
+            register_admin_panel_elements_event_listener();
+        }
+
+        document.getElementById("admin_panel").addEventListener("click", function() {
+            fetch("/conference_manage", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    "action": "fetch_admin_ui",
+                    "alt_login_name": globalThis.alt_name,
+                    "alt_login_pass": globalThis.alt_pass
+                }),
+            })
+            .then(response => response.json())
+            .then(data => load_admin_panel(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        });
+
+        document.getElementById("close_admin_panel").addEventListener("click", function() {
+            document.getElementById("after_login_ui").style.display = "flex";
+            document.getElementById("admin_ui").style.display = "none";
+        });
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat Interface</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f1f1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    
+    /* Agent List Section */
+    .agent-section {
+      background-color: #fff;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      overflow-x: auto;
+    }
+
+    .agent {
+      background-color: #eee;
+      padding: 10px 15px;
+      border-radius: 20px;
+      margin-right: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .simulator {
+      background-color: orange;
+      padding: 10px 15px;
+      border-radius: 10px;
+      margin-right: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      outline: none;
+    }
+
+    .agent.active {
+      background-color: #0084ff;
+      color: white;
+    }
+
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      overflow-y: auto;
+    }
+
+    .message {
+      max-width: 60%;
+      margin: 5px 0;
+      padding: 10px 15px;
+      border-radius: 15px;
+      clear: both;
+    }
+
+    .incoming {
+      background-color: #e0e0e0;
+      align-self: flex-start;
+    }
+
+    .outgoing {
+      background-color: #0084ff;
+      color: white;
+      align-self: flex-end;
+    }
+
+    .input-area {
+      display: flex;
+      padding: 10px;
+      background-color: white;
+      border-top: 1px solid #ccc;
+    }
+
+    .input-area input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+      outline: none;
+    }
+
+    .input-area button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      border: none;
+      background-color: #0084ff;
+      color: white;
+      border-radius: 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .input-area button:hover {
+      background-color: #006fe0;
+    }
+  </style>
+</head>
+<body>
+    <div class="agent-section" id="agentList">
+        {% for agent in data %}
+        <div class="agent" onclick="selectAgent(this)">Persona {{ agent["name"] }}</div>
+        {% endfor %}
+        <button class="simulator" id="simulate" name="simulate">Run Simulate</button>
+    </div>
+    
+
+  <div class="chat-container" id="chat">
+    
+  </div>
+
+  <div class="input-area">
+    <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="clickPress(event)"/>
+    <button id="query_bot_button" name="query_bot_button">Send</button>
+  </div>
+
+  <script>
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const chat = document.getElementById('chat');
+
+      // Create outgoing message
+      const messageEl = document.createElement('div');
+      messageEl.className = 'message outgoing';
+      messageEl.textContent = text;
+
+      chat.appendChild(messageEl);
+      input.value = '';
+
+      // Scroll to bottom
+      chat.scrollTop = chat.scrollHeight;
+
+      // Simulated incoming response (optional)
+      setTimeout(() => {
+        const reply = document.createElement('div');
+        reply.className = 'message incoming';
+        reply.textContent = "Thanks! We're looking into it.";
+        chat.appendChild(reply);
+        chat.scrollTop = chat.scrollHeight;
+      }, 1000);
+    }
+
+    function selectAgent(el) {
+      document.querySelectorAll('.agent').forEach(agent => {
+        agent.classList.remove('active');
+      });
+      el.classList.add('active');
+
+      // Optional: You could reset chat, load messages, etc. here
+      // For now, just update the selected agent
+      const chat = document.getElementById('chat');
+      chat.innerHTML = `<div class="message incoming">Hi! You're now chatting with ${el.textContent}.</div>`;
+    }
+  </script>
+
+  <script>
+
+    // WebSocket connection URL (replace with your own URL)
+    const wsUrl = 'ws://localhost:{{ wss_port }}/ws';
+
+    // Create a new WebSocket connection
+    const socket = new WebSocket(wsUrl);
+
+    socket.addEventListener('open', (event) => {
+      console.log('WebSocket is connected');
+    });
+    socket.onmessage = function(event) {
+        console.log(event);
+        console.log(event.data);
+      bot_formatter(JSON.parse(event.data).response);
+    }
+
+    /* When a message is received from the WebSocket
+    socket.addEventListener('message', (event) => {
+        console.log(event);
+      bot_formatter(event.message.data.response);
+    });
+    */
+
+    // If there's an error with the WebSocket connection
+    socket.addEventListener('error', (error) => {
+      console.error('WebSocket Error:', error);
+      
+    });
+
+    // If the connection is closed
+    socket.addEventListener('close', () => {
+      console.log('WebSocket connection closed');
+    });
+
+    function ask_bot_socket(value) {
+        socket.send(value);
+    }
+
+    function bot_formatter(com) {
+        // This is basically incoming chat
+        document.getElementById("chat").innerHTML += `<div class="message incoming">${com}</div>`;
+        document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+    }
+
+    function customer_formatter(com) {
+        // This is basically outgoing chat
+        return `<div class="message outgoing">${com}</div>`;
+    }
+
+
+    function ask_bot(query, update_element) {
+        fetch("/bot", {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(query), 
+            })
+            .then(response => response.json())
+            .then(data => bot_formatter(data.response))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+    }
+
+    function chat_interation() {
+        let input_text = document.getElementById("messageInput").value;
+
+        if (input_text !== "") {
+            document.getElementById("chat").innerHTML += customer_formatter(input_text);
+			document.getElementById("messageInput").value = '';
+			document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+            //ask_bot({"query": input_text}, "element_x");
+            ask_bot_socket(input_text);
+        } else {
+            console.log("No input");
+        }
+    }
+
+    document.getElementById("query_bot_button").addEventListener("click", function(){
+        chat_interation();
+        
+    });
+
+    function clickPress(event) {
+        if (event.key == "Enter") {
+            chat_interation();
+        }
+    }
+
+    // Simulator code
+    function customer_query_proceed(persona, data) {
+        if (data.intent === "halt" ) {
+            document.getElementById("chat").innerHTML += customer_formatter(data.query);
+        } else {
+             document.getElementById("chat").innerHTML += customer_formatter(data.query);
+            fetch_bot_response(persona, {"query": data.query});
+        }
+        document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+    }
+
+    function bot_response_process(persona, data) {
+        document.getElementById("chat").innerHTML += `<div class="message incoming">${data.response}</div>`;
+        document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+        fetch_customer_query(persona, false, data.response);
+    }
+
+    function fetch_customer_query(persona, init, bot_response) {
+        if (init) {
+            body = {"persona": persona, "initiate": init, "bot_response": ""}
+        } else {
+            body = {"persona": persona, "initiate": init, "bot_response": bot_response}
+        }
+
+        fetch("/persona_simulator_query", {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body), 
+            })
+            .then(response => response.json())
+            .then(data => customer_query_proceed(persona, data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+    }
+
+    function fetch_bot_response(persona, query) {
+        fetch("/bot", {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(query), 
+            })
+            .then(response => response.json())
+            .then(data => bot_response_process(persona, data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+    }
+
+    document.getElementById("simulate").addEventListener("click", function() {
+        document.querySelectorAll('.agent').forEach(agent => {
+            if (agent.classList.contains("active")) {
+                fetch_customer_query(agent.innerText, true, "");
+            }
+        });
+    });
+    
+    
+</script>
+
+</body>
+</html>

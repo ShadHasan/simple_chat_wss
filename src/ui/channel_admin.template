@@ -1,0 +1,34 @@
+<table id="admin_manage_table_table">
+    <tr>
+        <th>Channel</th><th>Closed</th><th>Open for all</th><th>Members</th><th> Add new member </th>
+    </tr>
+
+        {% for channel in channels %}
+            <tr>
+                <td>{{ channel.channel }}</td>
+                <td>
+                    {% if channel.closed %}
+                    <input type="checkbox" checked class="admin_channel_closed_class" val1="{{ channel.channel }}">
+                    {% else %}
+                    <input type="checkbox" class="admin_channel_closed_class" val1="{{ channel.channel }}">
+                    {% endif %}
+                </td>
+                <td>
+                    {% if channel.open_for_all %}
+                    <input type="checkbox" checked class="admin_channel_open4all_class" val1="{{ channel.channel }}">
+                    {% else %}
+                    <input type="checkbox" class="admin_channel_open4all_class" val1="{{ channel.channel }}">
+                    {% endif %}
+                </td>
+                <td>
+                    {% for member in channel.members %}
+                        {{ member }} <button class="admin_channel_remove_member" value="member" val1="{{ channel.channel }}" mem1="{{ member }}"> rm </button> <br>
+                    {% endfor %}
+                </td>
+                <td>
+                    <input type="text" placeholder="Enter alt member name" class="admin_channel_add_member" val1="{{ channel.channel }}">
+                </td>
+            </tr>
+        {% endfor %}
+    </tr>
+</table>
