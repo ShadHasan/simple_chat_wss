@@ -534,7 +534,6 @@ def video_ui(response_class=PlainTextResponse):
 
 
 # ================ Video/Audio Conference =======================
-
 @app.websocket("/ws_video_v2/{channel}/{streamer}")
 async def websocket_video_stream_endpoint(channel: str, streamer: str, websocket: WebSocket):
     await websocket.accept()
@@ -616,16 +615,40 @@ async def broadcaster_channel(channel: str, streamer: str):
     chunk = await run_in_threadpool(stream_ws_manager.get_chunk_of_channel, channel, streamer)
     return StreamingResponse(chunk, media_type="multipart/x-mixed-replace;boundary=frame")
 
+
 # ============= Video streaming behavior test====================
+# static video based ui to test browser client support the video player
+@app.get("/video_client_test")
+async def static_client_video_test(response_class=PlainTextResponse):
+    with open(os.path.join("ui", "video_static_ui.template"), "r") as f:
+        initial_ui = Template(
+            f.read()).render(
+            proto=ws_protocol,
+            wss_port=os.environ["WSS_PORT"],
+            wss_host=os.environ["WSS_HOST"]
+        )
+        initial_ui = initial_ui
+    response = Response(content=initial_ui)
+    response.headers["content-type"] = "text/html"
+    return response
 
 
-@app.get("/test/video")
-async def broadcaster_channel():
-    return {"result": None}
+@app.get("/video_sb_test")
+async def static_client_video_test(response_class=PlainTextResponse):
+    with open(os.path.join("ui", "video_sb_ui.template"), "r") as f:
+        initial_ui = Template(
+            f.read()).render(
+            proto=ws_protocol,
+            wss_port=os.environ["WSS_PORT"],
+            wss_host=os.environ["WSS_HOST"]
+        )
+        initial_ui = initial_ui
+    response = Response(content=initial_ui)
+    response.headers["content-type"] = "text/html"
+    return response
+
 
 # ============= (Deprecated) Old reply UI for chatbot design =================
-
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
