@@ -77,26 +77,21 @@
 		let stream_play = false;
 		let stream_vid_list = [];
 		let collect_blob = [];
+		let mime_codec = 'video/mp4; codecs="avc1.424028, mp4a.40.2"'; // 'video/webm; codecs="vp8, vorbis"';
 
 		let recordingTimeMS = 1000;
 
-		function enable_stream_play() {
-            stream_play = true;
-            if (stream_vid_list.length > 0) {
-                streaming.src = stream_vid_list.shift();
-            }
-
+		function* nblob() {
+		    while(collect_blob.length > 0) {
+		        yield collect_blob.shift();
+		    }
 		}
 
+        /*
+
 		function load_response_stream(res) {
-		    if (!stream_play) {
-		        let res_url = URL.createObjectURL(res);
-		        stream_vid_list.push(res_url);
-		        enable_stream_play();
-		    } else {
-		        collect_blob.push(res);
-		    }
-		    //console.log("response in play");
+		    console.log("chunk arrive");
+		    collect_blob.push(res);
 		}
 
 		streaming.addEventListener("ended", () => {
@@ -112,7 +107,7 @@
             if (stream_vid_list.length > 0) {
                 streaming.src = stream_vid_list.shift();
             }
-        });
+        }); */
 
 		class ClientChatLib {
             // WebSocket connection URL (replace with your own URL)
@@ -126,6 +121,33 @@
                 this.channel = channel;
                 this.channel_key = channel_key;
                 this.salt = salt;
+            }
+
+            resp_stream() {
+                if (MediaSource.isTypeSupported(mime_codec)) {
+                    stream_play = true;
+                    console.log("response stream");
+                    let media_source = new MediaSource();
+                    media_source.socket = this.socket;
+                    streaming.src = URL.createObjectURL(media_source);
+                    media_source.addEventListener("sourceopen", this.load_response_stream);
+                } else {
+                    console.error("Unsupported MIME Type or codec", mime_codec);
+                }
+            }
+
+            load_response_stream() {
+                console.log(this.readyState);
+                const source_buffer = this.addSourceBuffer(mime_codec);
+                source_buffer.mode = "sequence";
+                this.socket.onmessage = (res) => {
+                    console.log("here");
+                    source_buffer.addEventListener("updateend", () => {
+                        this.endOfStream();
+                        streaming.play();
+                    });
+                    source_buffer.appendBuffer(new File([res.data], "1.webm", {type: "video/webm"}));
+                }
             }
 
             start_stream() {
@@ -150,10 +172,14 @@
                 });
 
                 // load coming message
+                /*
                 this.socket.onmessage = function(event) {
                     //console.log(event.data);
                   load_response_stream(event.data);
                 }
+                */
+
+                this.resp_stream();
 
             }
 
@@ -169,7 +195,10 @@
             "alt_name", "alt_pass", "default", "ch_key");
 
 		function recording(stream, lengthInMS) {
-			let recorder = new MediaRecorder(stream);
+		    const options = {
+		        mimeType: mime_codec,
+		    };
+			let recorder = new MediaRecorder(stream, options);
 			let data = [];
 
 			recorder.ondataavailable = (event) => data.push(event.data);
@@ -211,7 +240,7 @@
                                 recording(preview.captureStream(), recordingTimeMS)
                                 .then((recordedChunks) => {
                                     let recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
-                                    client_chat_lib.stream_conference(recordedBlob);
+                                    client_chat_lib.stream_conference(recordedChunks);
                                 })
                                 .catch((error) => { log(error); });
                             }
