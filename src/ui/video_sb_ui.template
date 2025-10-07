@@ -148,7 +148,7 @@
                         reader.addEventListener("loadend", ()=> resolve(reader.result));
                         reader.readAsArrayBuffer(res.data);
                     });*/
-                    let buffer = await new Response(res.data).arrayBuffer();
+                    let buffer = await new Response(res.data).arrayBuffer(); // unfortunately blob received hence to reconvert into array buffer. Todo we need to check if we can avoid step during send.
                     source_buffer.addEventListener("updateend", () => {
                         this.endOfStream();
                         streaming.play();
@@ -204,7 +204,7 @@
             "alt_name", "alt_pass", "default", "ch_key");
 
         async function send_record(data) {
-            console.log(data);
+            console.log(data);   // this will show blob data with mime codec
             let reader = new FileReader();
             let raw_data = new ArrayBuffer();
             reader.loadend = function() {
@@ -212,7 +212,7 @@
             };
             reader.onload = function(e) {
                 raw_data = e.target.result;
-                console.log(raw_data);
+                console.log(raw_data);  // this will show array buffer
                 client_chat_lib.stream_conference(raw_data);
                 console.log("end2...");
             }
