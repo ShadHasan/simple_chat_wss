@@ -140,13 +140,19 @@
                 console.log(this.readyState);
                 const source_buffer = this.addSourceBuffer(mime_codec);
                 source_buffer.mode = "sequence";
-                this.socket.onmessage = (res) => {
+                this.socket.onmessage = async (res) => {
                     console.log("here");
+					let buffer = await new Promise(resolve => {
+					  const fileReader = new FileReader();
+					  fileReader.addEventListener("loadend", () => resolve(fileReader.result));
+					  fileReader.readAsArrayBuffer(res.data);
+					});
                     source_buffer.addEventListener("updateend", () => {
                         this.endOfStream();
                         streaming.play();
                     });
-                    source_buffer.appendBuffer(new File([res.data], "1.webm", {type: "video/webm"}));
+                    // source_buffer.appendBuffer(new File([res.data], "1.webm", {type: "video/webm"}));
+                    source_buffer.appendBuffer(buffer);
                 }
             }
 
@@ -240,7 +246,22 @@
                                 recording(preview.captureStream(), recordingTimeMS)
                                 .then((recordedChunks) => {
                                     let recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
-                                    client_chat_lib.stream_conference(recordedChunks);
+                                    client_chat_lib.stream_conference(recordedBlob);
+                                    /*
+                                    console.log("end4...");
+                                    let reader = new FileReader();
+                                    let raw_data = new ArrayBuffer();
+                                    reader.loadend = function() {
+                                        console.log("end...");
+                                    };
+                                    reader.onload = function(e) {
+                                        raw_data = e.target.result;
+                                        client_chat_lib.stream_conference(raw_data);
+                                        console.log("end2...");
+                                    }
+                                    reader.readAsArrayBuffer(recordedChunks.data);
+                                    console.log("end3...");
+                                    */
                                 })
                                 .catch((error) => { log(error); });
                             }
