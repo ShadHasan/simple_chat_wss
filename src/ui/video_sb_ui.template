@@ -77,7 +77,7 @@
 		let stream_play = false;
 		let stream_vid_list = [];
 		let collect_blob = [];
-		let mime_codec = 'video/mp4; codecs="avc1.424028, mp4a.40.2"'; // 'video/webm; codecs="vp8, vorbis"';
+		let mime_codec = 'video/webm;codecs=vp8,opus'; // 'video/mp4; codecs="avc1.424028, mp4a.40.2"'; // 'avc1.42E01E, mp4a.40.2';  // 'video/webm; codecs="vp8, vorbis"';
 
 		let recordingTimeMS = 1000;
 
@@ -141,17 +141,20 @@
                 const source_buffer = this.addSourceBuffer(mime_codec);
                 source_buffer.mode = "sequence";
                 this.socket.onmessage = async (res) => {
-                    console.log("here");
-					let buffer = await new Promise(resolve => {
-					  const fileReader = new FileReader();
-					  fileReader.addEventListener("loadend", () => resolve(fileReader.result));
-					  fileReader.readAsArrayBuffer(res.data);
-					});
+                    console.log("msg", res.data);
+                    /*
+                    let buffer = await new Promise(resolve => {
+                        let reader = new FileReader();
+                        reader.addEventListener("loadend", ()=> resolve(reader.result));
+                        reader.readAsArrayBuffer(res.data);
+                    });*/
+                    let buffer = await new Response(res.data).arrayBuffer();
                     source_buffer.addEventListener("updateend", () => {
                         this.endOfStream();
                         streaming.play();
                     });
                     // source_buffer.appendBuffer(new File([res.data], "1.webm", {type: "video/webm"}));
+                    console.log(res);
                     source_buffer.appendBuffer(buffer);
                 }
             }
@@ -200,29 +203,32 @@
         let client_chat_lib = new ClientChatLib(
             "alt_name", "alt_pass", "default", "ch_key");
 
+        async function send_record(data) {
+            console.log(data);
+            let reader = new FileReader();
+            let raw_data = new ArrayBuffer();
+            reader.loadend = function() {
+                console.log("end...");
+            };
+            reader.onload = function(e) {
+                raw_data = e.target.result;
+                console.log(raw_data);
+                client_chat_lib.stream_conference(raw_data);
+                console.log("end2...");
+            }
+            reader.readAsArrayBuffer(data);
+        }
+
 		function recording(stream, lengthInMS) {
 		    const options = {
 		        mimeType: mime_codec,
 		    };
-			let recorder = new MediaRecorder(stream, options);
-			let data = [];
-
-			recorder.ondataavailable = (event) => data.push(event.data);
-			recorder.start();
-			log(`${recorder.state} for ${lengthInMS / 1000} seconds…`);
-
-			let stopped = new Promise((resolve, reject) => {
-				recorder.onstop = resolve;
-				recorder.onerror = (event) => reject(event.name);
-			});
-
-			let recorded = wait(lengthInMS).then(() => {
-				if (recorder.state === "recording") {
-					recorder.stop();
-				}
-			});
-
-			return Promise.all([stopped, recorded]).then(() => data);
+			let recorder = new MediaRecorder(stream);
+			recorder.ondataavailable = (data) => {
+                send_record(data.data);
+			}
+            recorder.start();
+            setInterval(() => {recorder.requestData()}, 1000);
 		}
 
 		function stop_preview_stream(stream) {
@@ -239,45 +245,22 @@
 		}
 
 		startStreaming.addEventListener("click",
-                () => {
-                    if (intervalController === null) {
-                        intervalController = setInterval( () => {
-                            if (preview.srcObject !== null) {
-                                recording(preview.captureStream(), recordingTimeMS)
-                                .then((recordedChunks) => {
-                                    let recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
-                                    client_chat_lib.stream_conference(recordedBlob);
-                                    /*
-                                    console.log("end4...");
-                                    let reader = new FileReader();
-                                    let raw_data = new ArrayBuffer();
-                                    reader.loadend = function() {
-                                        console.log("end...");
-                                    };
-                                    reader.onload = function(e) {
-                                        raw_data = e.target.result;
-                                        client_chat_lib.stream_conference(raw_data);
-                                        console.log("end2...");
-                                    }
-                                    reader.readAsArrayBuffer(recordedChunks.data);
-                                    console.log("end3...");
-                                    */
-                                })
-                                .catch((error) => { log(error); });
-                            }
-                        }, recordingTimeMS);
-                    }
+            () => {
+                if (preview.srcObject !== null) {
+                    console.log("starting stream recording...");
+                    recording(preview.captureStream(), recordingTimeMS);
                 }
-			);
+            }
+        );
 
-            stopStreaming.addEventListener("click",
-                () => {
-                    if (preview.srcObject !== null) {
-                        stop_preview_stream(preview.srcObject);
-                    }
-                },
-                false,
-            );
+        stopStreaming.addEventListener("click",
+            () => {
+                if (preview.srcObject !== null) {
+                    stop_preview_stream(preview.srcObject);
+                }
+            },
+            false,
+        );
 
 		function streamRegister(stream_element) {
 		    // it is dummy function

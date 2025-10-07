@@ -204,30 +204,30 @@
 		}
 
 		startStreaming.addEventListener("click",
-                () => {
-                    if (intervalController === null) {
-                        intervalController = setInterval( () => {
-                            if (preview.srcObject !== null) {
-                                recording(preview.captureStream(), recordingTimeMS)
-                                .then((recordedChunks) => {
-                                    let recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
-                                    client_chat_lib.stream_conference(recordedBlob);
-                                })
-                                .catch((error) => { log(error); });
-                            }
-                        }, recordingTimeMS);
-                    }
+            () => {
+                if (intervalController === null) {
+                    intervalController = setInterval( () => {
+                        if (preview.srcObject !== null) {
+                            recording(preview.captureStream(), recordingTimeMS)
+                            .then((recordedChunks) => {
+                                let recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
+                                client_chat_lib.stream_conference(recordedBlob);
+                            })
+                            .catch((error) => { log(error); });
+                        }
+                    }, recordingTimeMS);
                 }
-			);
+            }
+        );
 
-            stopStreaming.addEventListener("click",
-                () => {
-                    if (preview.srcObject !== null) {
-                        stop_preview_stream(preview.srcObject);
-                    }
-                },
-                false,
-            );
+        stopStreaming.addEventListener("click",
+            () => {
+                if (preview.srcObject !== null) {
+                    stop_preview_stream(preview.srcObject);
+                }
+            },
+            false,
+        );
 
 		function streamRegister(stream_element) {
 		    // it is dummy function
