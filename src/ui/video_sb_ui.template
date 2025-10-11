@@ -74,6 +74,7 @@
 		let stopStreaming = document.getElementById("stopStreaming");
 		let logElement = document.getElementById("log");
 		let intervalController = null;
+		let main_recorder;
 		let stream_play = false;
 		let stream_vid_list = [];
 		let collect_blob = [];
@@ -223,12 +224,12 @@
 		    const options = {
 		        mimeType: mime_codec,
 		    };
-			let recorder = new MediaRecorder(stream);
-			recorder.ondataavailable = (data) => {
+			main_recorder = new MediaRecorder(stream);
+			main_recorder.ondataavailable = (data) => {
                 send_record(data.data);
 			}
-            recorder.start();
-            setInterval(() => {recorder.requestData()}, 1000);
+            main_recorder.start();
+            setInterval(() => {main_recorder.requestData()}, 300);
 		}
 
 		function stop_preview_stream(stream) {
@@ -241,6 +242,7 @@
 		        clearInterval(intervalController);
 		        intervalController = null;
 		    }
+		    main_recorder.stop();
 			stream.getTracks().forEach((track) => track.stop());
 		}
 
