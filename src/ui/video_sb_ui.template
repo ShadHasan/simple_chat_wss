@@ -138,9 +138,16 @@
             }
 
             load_response_stream() {
-                console.log(this.readyState);
-                const source_buffer = this.addSourceBuffer(mime_codec);
-                source_buffer.mode = "sequence";
+                console.log(this.readyState, "ex open"); // open
+                let media_source = this;
+                let source_buffer = null;
+                if (this.sourceBuffers.length <= 0) { // Since here we are using one stream if there multiple stream than multiple stream buffer
+                    source_buffer = this.addSourceBuffer(mime_codec);
+                    source_buffer.mode = "sequence";
+                } else {
+                    source_buffer = this.sourceBuffers[0];
+                }
+
                 this.socket.onmessage = async (res) => {
                     console.log("msg", res.data);
                     /*
@@ -151,8 +158,11 @@
                     });*/
                     let buffer = await new Response(res.data).arrayBuffer(); // unfortunately blob received hence to reconvert into array buffer. Todo we need to check if we can avoid step during send.
                     source_buffer.addEventListener("updateend", () => {
-                        this.endOfStream();
-                        streaming.play();
+                        if (media_source.readyState == "open") {   // in case it remain open
+                            this.endOfStream();
+                            streaming.play();
+                        }
+                        console.log(this.readyState, "ex end"); // close
                     });
                     // source_buffer.appendBuffer(new File([res.data], "1.webm", {type: "video/webm"}));
                     console.log(res);
@@ -194,7 +204,7 @@
             }
 
             stream_conference(b_tes) {
-                if (this.socket.readyState == WebSocket.OPEN) {
+                if (this.socket != null && this.socket.readyState == WebSocket.OPEN) {
                     this.socket.send(b_tes);
                 }
             }
@@ -229,7 +239,7 @@
                 send_record(data.data);
 			}
             main_recorder.start();
-            setInterval(() => {main_recorder.requestData()}, 300);
+            intervalController = setInterval(() => {main_recorder.requestData()}, 300);
 		}
 
 		function stop_preview_stream(stream) {
