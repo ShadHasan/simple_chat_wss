@@ -1,3 +1,5 @@
 .idea
 src/cer/*
 src/res/test.mp4
+docker/copiable_content/chat_app
+
