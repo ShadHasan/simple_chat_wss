@@ -47,15 +47,7 @@ async def stream_endpoint():
     
 @app.get("/")
 def main_ui():
-    with open(os.path.join("ui", "main_ui.template"), "r") as f:
-        initial_ui = Template(
-            f.read()).render(
-            proto=ws_protocol,
-            wss_port=os.environ["WSS_PORT"],
-            wss_host=os.environ["WSS_HOST"]
-        )
-        initial_ui = initial_ui
-    response = Response(content=initial_ui)
+    response = Response(content="<h1>Hello world</h1>")
     response.headers["content-type"] = "text/html"
     return response
     
@@ -126,7 +118,7 @@ def logout(response: Response):
 
 @app.get("/page/main")
 def main_ui():
-    with open(os.path.join("ui", "main_ui.template"), "r") as f:
+    with open(os.path.join("ui", "main.template"), "r") as f:
         initial_ui = Template(
             f.read()).render(
             proto=ws_protocol,

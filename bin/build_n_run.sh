@@ -9,7 +9,7 @@ cd ${root_folder}
 # clean up
 docker stop wss_chat || true
 docker rm wss_chat || true
-# docker image rm tinyorb/wss_chat:3.0 || true
+docker image rm tinyorb/wss_chat:3.0 || true
 
 rm -rf ${root_folder}/docker/copiable_content/chat_app
 

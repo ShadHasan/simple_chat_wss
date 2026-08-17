@@ -83,6 +83,7 @@
 
       // NOTE: Send response.credential (the ID token) to your backend server via POST/fetch
       // for secure validation before logging the user into your application backend.
+	  verifyTokenOnBackend(response);
     }
 
     // Helper function to parse JWT ID Token payload
@@ -95,6 +96,31 @@
 
       return JSON.parse(jsonPayload);
     }
+	
+	async function verifyTokenOnBackend(response) {
+	  // Post the JWT token directly to your backend
+	  try {
+		const res = await fetch('https://wss.tinyorb.org:10008/api/auth/google', {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+		  },
+		  body: JSON.stringify({ token: response.credential }),
+		});
+
+		const data = await res.json();
+		
+		if (res.ok) {
+		  console.log('Successfully logged in on backend:', data);
+		  // Save session/JWT token from backend and redirect user
+		} else {
+		  console.error('Login failed:', data.error);
+		}
+	  } catch (error) {
+		console.error('Error connecting to auth server:', error);
+	  }
+	}
+	
   </script>
 </body>
 </html>
