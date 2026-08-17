@@ -1,15 +1,21 @@
 #!/bin/bash
 
 path="$(readlink -f ${BASH_SOURCE[0]})"
-path="$(dirname ${path})"
-root_folder="$(dirname ${path})"
+bin_path="$(dirname ${path})"
+root_folder="$(dirname ${bin_path})"
 
 cd ${root_folder}
 
 # clean up
 docker stop wss_chat || true
 docker rm wss_chat || true
-docker image rm tinyorb/wss_chat:3.0 || true
+# docker image rm tinyorb/wss_chat:3.0 || true
+
+rm -rf ${root_folder}/docker/copiable_content/chat_app
+
+cp -rf ${root_folder}/src ${root_folder}/docker/copiable_content/chat_app
+
+cd ${root_folder}/docker
 
 # publish image
 docker image build -t tinyorb/wss_chat:3.0 .
@@ -17,10 +23,10 @@ docker image build -t tinyorb/wss_chat:3.0 .
 HOST_APP_PORT=10008
 
 # This is for publishing
-#HOST_APP_DOMAIN=ubiquitous.tinyorb.org
+HOST_APP_DOMAIN=wss.tinyorb.org
 
 # This is only for local testing
-HOST_APP_DOMAIN=172.24.125.197
+# HOST_APP_DOMAIN=172.24.125.197
 
 # if it is SSL and PROTOCOL WSS
 SSL=true
@@ -31,7 +37,6 @@ SSL=true
   -p ${HOST_APP_PORT}:8000/tcp --cap-add=NET_RAW --cap-add=NET_ADMIN tinyorb/wss_chat:3.0
 
 if [[ "${SSL}" == "true" ]]; then
-
   # sudo docker run -d --name=nw_mon_test -p 90:8991 tinyorb/python3:nw_monitor
   echo "Navigate older https://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/ui"
   echo "Navigate newer https://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/ui_v2"
