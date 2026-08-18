@@ -46,21 +46,17 @@ async def stream_endpoint():
     return StreamingResponse(my_generator(), media_type="text/event-stream")
     
 @app.get("/")
-def main_ui():
-    response = Response(content="<h1>Hello world</h1>")
+def rool_path():
+    with open(os.path.join("ui", "main.template"), "r") as f:
+        initial_ui = f.read()
+    response = Response(content=initial_ui, status_code=200)
     response.headers["content-type"] = "text/html"
     return response
     
 @app.get("/page/login")
-def main_ui():
+def page_login():
     with open(os.path.join("ui", "login.template"), "r") as f:
-        initial_ui = Template(
-            f.read()).render(
-            proto=ws_protocol,
-            wss_port=os.environ["WSS_PORT"],
-            wss_host=os.environ["WSS_HOST"]
-        )
-        initial_ui = initial_ui
+        initial_ui = f.read()
     response = Response(content=initial_ui)
     response.headers["content-type"] = "text/html"
     return response
@@ -117,15 +113,9 @@ def logout(response: Response):
     return {"message": "Logged out successfully"}
 
 @app.get("/page/main")
-def main_ui():
+def main_page():
     with open(os.path.join("ui", "main.template"), "r") as f:
-        initial_ui = Template(
-            f.read()).render(
-            proto=ws_protocol,
-            wss_port=os.environ["WSS_PORT"],
-            wss_host=os.environ["WSS_HOST"]
-        )
-        initial_ui = initial_ui
+        initial_ui = f.read()
     response = Response(content=initial_ui)
     response.headers["content-type"] = "text/html"
     return response
@@ -136,6 +126,6 @@ if os.environ.get("SSL") == "true":
     # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     # ssl_context.load_cert_chain(, keyfile=)
     uvicorn.run(app, host="0.0.0.0", port=8000, ssl_certfile=os.path.join("cer", "main.cer"), ssl_keyfile=os.path.join(
-        "cer", "main.key"))
+        "cer", "main.key"), reload=False)
 else:
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)

@@ -32,16 +32,15 @@ HOST_APP_DOMAIN=wss.tinyorb.org
 SSL=true
 
 
-# sudo docker run -d --name=wss_chat -p <host_port>:<docker_app_port>/tcp --cap-add=NET_RAW --cap-add=NET_ADMIN tinyorb/wss_chat
- sudo docker run -d --name=wss_chat -e WSS_PORT=${HOST_APP_PORT} -e WSS_HOST=${HOST_APP_DOMAIN} -e SSL=${SSL} \
+# sudo docker run --privileged -d --name=wss_chat -p <host_port>:<docker_app_port>/tcp --cap-add=NET_RAW --cap-add=NET_ADMIN tinyorb/wss_chat
+ sudo docker run --privileged -d --name=wss_chat -e WSS_PORT=${HOST_APP_PORT} -e WSS_HOST=${HOST_APP_DOMAIN} -e SSL=${SSL} \
   -p ${HOST_APP_PORT}:8000/tcp --cap-add=NET_RAW --cap-add=NET_ADMIN tinyorb/wss_chat:3.0
 
 if [[ "${SSL}" == "true" ]]; then
   # sudo docker run -d --name=nw_mon_test -p 90:8991 tinyorb/python3:nw_monitor
-  echo "Navigate older https://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/ui"
-  echo "Navigate newer https://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/ui_v2"
+  echo "Navigate older https://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/"
+  echo "Navigate newer https://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/"
 
 else
-  echo "Navigate older http://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/ui"
-  echo "Navigate newer http://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/ui_v2"
+  echo "Navigate older http://${HOST_APP_DOMAIN}:${HOST_APP_PORT}/"
 fi
