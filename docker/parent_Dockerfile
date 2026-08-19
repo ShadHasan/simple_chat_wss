@@ -1,0 +1,7 @@
+FROM tinyorb/python3.12:base
+RUN apt install libssl-dev iperf3 iproute2 inetutils-ping curl -y
+COPY requirements.txt /tmp/requirements.txt
+RUN rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED || true
+RUN python3 -m pip install -r /tmp/requirements.txt
+RUN python3 -m pip install "fastapi[standard]"
+RUN python3 -m pip install "google-auth[requests]"

@@ -1,0 +1,19 @@
+class SignalManager:
+
+	candidate_socket_map = {}
+	channel = {}
+	
+	"""
+	{
+		<ws>: {
+			"access": "public/private",
+			"candidate": <candidate>,
+			"id": ""
+		}
+	}
+	"""
+
+	def register_websocket_candidate(websocket):
+		
+		
+	
