@@ -6,7 +6,10 @@ class SignalManager:
 		<ws>: {
 			"access": "public/private",
 			"candidate": <candidate>,
-			"altname": ""
+			"altname": "",
+            "client_type": "end/service",
+            "register_time": "",
+            "requested_altnames": []
 		}
 	}
 	"""
@@ -32,17 +35,25 @@ class SignalManager:
     }
     """
 	
-	
     
     def __init__(self):
         pass
-        # load email_altname
+        # load email_altname from database
 
-	def register_websocket_candidate(websocket, email, candidate, altname):
+	def register_websocket_candidate(websocket, email, candidate, altname, client_type, access=private):
         pass
         
     def get_public_altname_candidate():
         pass
-		
+        
+    def get_candidate_by_altname(altname):
+        pass
+        
+    
+    def forward_signal_to(altname, signal_data):
+        pass
+        
+    def get_current_websocket_requested_altnames():
+        pass
 		
 	
