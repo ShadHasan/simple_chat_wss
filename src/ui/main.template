@@ -27,7 +27,35 @@
  else it will use remotechannel.
  
  */
+	class MainUI {
+		
+	}
+ 
+	class SignalServer {
 	
+		constructor(mainUI) {
+		 this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
+		 this.mainui = mainUI;
+		 
+		}
+		
+		get publicAltname() {
+			this.mainui.load_altname
+		}
+		
+		send(json_data) {
+			signalingSocket.send(json_data);
+		}
+	
+	}
+	
+	class PeerConnection {
+		constructor
+	}
+	
+	class ChatRoom {
+	
+	}
  </script>
 </body>
 </html>
