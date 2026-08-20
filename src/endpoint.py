@@ -9,6 +9,7 @@ from jinja2 import Template
 from fastapi.responses import StreamingResponse
 import asyncio
 import uvicorn
+from lib.signal_manager import SignalManager
 
 
 app = FastAPI()
@@ -17,6 +18,8 @@ app = FastAPI()
 GOOGLE_CLIENT_ID = "223025000144-h24fpvolha8m78bl0askl3sal4agvbt2.apps.googleusercontent.com"
 SECRET_KEY = "oh-lord-in-heave-983409-pullu-pullu"  # Change in production
 ALGORITHM = "HS256"
+signal_manager = SignalManager()
+
 
 class GoogleAuthPayload(BaseModel):
     token: str

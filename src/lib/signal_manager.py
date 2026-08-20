@@ -55,11 +55,20 @@ class SignalManager:
     def get_current_websocket_requested_altnames(self, websocket):
         pass
         
-    def signal_directive_switch(self, websocket, data):
+    async def signal_directive_switch(self, websocket, data):
+        # Please note: if signal socket gone, simply candidate is loss. Hence
+        # client has to connect signal socket and register candidate to its
+        # signal socket.
         signal_response = {
-            "candidate_register": ["ok", "nok"],
-            "signal_forward": ["ok", "nok"],
-            "fetch_candidate": ["ok", "nok"]
+            "register_candidates": "{registered_candidate: ok/nok}",
+            "forward_offer": "{forwarded_offer: ok/nok, to_altname: <altname>}",
+            "forward_answer": "{forwarded_answer: ok/nok, to_altname: <altname>}",
+            "my_websocket_requested_altnames": "{my_candidate_shared_to_altnames: [<altname>...]}",
+            "forward_network_request": "forwarded_network_request: {status: ok/nok, to_altname: <altname>}",
+            "forward_network_request_response": "forwarded_network_request_response: {status: accepted/rejected, by_altname: <altname>}",
+            "public_altname": "{public_altnames: [<altname>...]}",
+            "request_candidate": "{altname: <altname>, candidate: <candidate of altman>/None}",
+            "update_my_altname_access": "{access_updated: ok/nok}"
         }
         
         signal_action_dict = {
@@ -69,6 +78,6 @@ class SignalManager:
             "public_altname": lambda : get_public_altname_candidate()
         }
         
-        data["action"]
+        await websocket.send_json(response)
 		
 	
