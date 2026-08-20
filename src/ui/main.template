@@ -6,6 +6,28 @@
 <body>
  <p> Welcome to wss </p>
  <script>
+ /* There is two websocket communication. 
+ 1. using websocket direct for signaling.
+ 2. using via ICE client for actual communication between clients
+ 
+ Now, signaling websocket can be used
+ 1. registering candidate
+ 2. fetching altname
+ 3. request altname to be my network.
+ 4. accept altname to my altname network.   // 3,4 steps allow to directly allow to fetch candidat when altname is available online.
+ 5. get candidate of altname from my network // After this ICE client add this candidate
+ 6. sending offer as altname to other altname 
+ 7. receiving offer from other altname to my altname 
+ 8. receiver will create answer
+ 9. sender altname will receive answer  // At this point ICE Client peer connection ready for communication.
+ 
+ Now, ICE Client
+ ICE Client have its datachannel and it is client for remotechannel
+ if it has initiated communication mean created then ice client it will use datachannel
+ else it will use remotechannel.
+ 
+ */
+	
  </script>
 </body>
 </html>
