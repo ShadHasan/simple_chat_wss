@@ -133,24 +133,12 @@ async def websocket_signal(websocket: WebSocket):
                 data = await websocket.receive_text()
                 data_json = json.loads(data)
                 print(data_json)
-                if data_json["action"] == "close":
-                    await websocket.close()
-                    websocket_manager.disconnect(websocket)
-                    break
-                elif data_json["action"] == "init":
-                    await websocket_manager.sync_chat(
-                        websocket, data_json["channel_id"], data_json["alt_name"], data_json["alt_pass"], True)
-                elif data_json["action"] == "continue":
-                    await websocket_manager.sync_chat(
-                        websocket, data_json["channel_id"], data_json["alt_name"], data_json["alt_pass"], False,
-                        data_json["message"])
-                else:
-                    await websocket.send_json({"Error": "unknown signal"})
+                signal_manager.signal_directive_switch(websocket, data_json)
             except:
                 await websocket.send_json({"Error": "Unknown exception"})
     except (WebSocketDisconnect, ConnectionClosed) as rrr:
         print("Exception capture on websocket connection", rrr)
-        websocket_manager.disconnect(websocket)
+        del signal_manager.candidate_socket_map[websocket]
 
 # ============== Start the server
 if os.environ.get("SSL") == "true":
