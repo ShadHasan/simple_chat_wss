@@ -49,24 +49,78 @@ class SignalManager:
                 "altname": data["altname"],
                 "client_type": data["client_type"],
                 "register_time": datetime.datetime.now(),
-                "access": data["access"] if data.get("access") is not None else "private"
+                "access": data["access"] if data.get("access") is not None else "private",
+                "requested_altnames": set()
             }
-            return {"registered_candidate": "ok"}
+            return {"signal_response": "registered_candidate", "status": "ok"}
         except:
-            return {"registered_candidate": "nok"}
+            return {"signal_response": "registered_candidate", "status": "nok"}
         
         
-    def get_public_altname_candidate(self):
-        pass
+    def get_public_altname(self, data):
+        altnames = []
+        try:
+            for ws in candidate_socket_map.key():
+                if candidate_socket_map[ws]["access"] == data["public"]:
+                    altnames.append(candidate_socket_map[ws]["altname"])
+        except Exception as e:
+            print("Exception occured in fetching public altnames: {}".format(e))
+        return {"signal_response": "public_altnames", "public_altnames": altnames}
         
-    def get_candidate_by_altname(self, websocket, altname):
-        pass
+    def get_candidate_by_altname(self, data):
+        candidates = []
+        try:
+            for ws in candidate_socket_map.key():
+                if candidate_socket_map[ws]["altname"] == data["altname"]:
+                    candidate.append(candidate_socket_map[ws]["candidate"])
+                    candidate_socket_map[ws]["requested_altnames"].add(data["from_altname"])
+        except Exception as e:
+            print("Exception occured in fetching candidate: {}".format(e))
+        return {"signal_response": "altname_candidates", "altname": data["altname"], "candidates": candidates}
         
-    def forward_signal_to(self, altname, signal_data):
-        pass
+    async def forward_signal_to(self, data):
+        try:
+            from_altname = data["from_altname"]
+            to_altname = data["to_altname"]
+            transaction_id = data["transaction_id"]
+            forward_payload = data["forward_payload"]
+            
+            if data["directive"] = "forward_offer":
+                signal_response = "fowarded_offer"
+            elif data["directive"] == "forward_answer":
+                signal_response = "fowarded_answer"
+            
+            elif data["directive"] == "forward_network_request":
+                signal_response = "fowarded_network_request"
+            
+            elif data["directive"] == "forward_network_request_response":
+                signal_response = "fowarded_network_request_response"
+            
         
-    def get_current_websocket_requested_altnames(self, websocket):
-        pass
+            for ws in candidate_socket_map.key():
+                if candidate_socket_map[ws]["altname"] == to_altname:
+                    await ws.send_json(data)
+            status = "ok"
+        except Exception as e:
+            print("Exception occured in fetching candidate: {}".format(e))
+            status = "nok"
+        return {
+            "signal_response": signal_response, 
+            to_altname=data["altname"], 
+            status=status,
+            transaction_id
+        }
+        
+    def get_current_websocket_requested_altnames(self, data):
+        requested_altnames = []
+        try:
+            requested_altnames = candidate_socket_map[data["websocket"]]["requested_altnames"]
+        except Exception as e:
+            print("Exception occured in requested_altnames: {}".format(e))
+        return {
+            "signal_response": "my_candidate_shared_to_altnames", 
+            "requested_altnames": requested_altnames
+        }
         
     def update_my_altname_access(self, altname, access):
         pass
@@ -109,7 +163,7 @@ class SignalManager:
                 "call": forward_signal_to,
             },
             "public_altname": {
-                "call": get_public_altname_candidate,
+                "call": get_public_altname,
             },
             "request_candidate": {
                 "call": get_candidate_by_altname,
