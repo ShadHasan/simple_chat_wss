@@ -106,9 +106,9 @@ class SignalManager:
             status = "nok"
         return {
             "signal_response": signal_response, 
-            to_altname=data["altname"], 
+            to_altname=data["to_altname"], 
             status=status,
-            transaction_id
+            transaction_id=transaction_id
         }
         
     def get_current_websocket_requested_altnames(self, data):
@@ -122,8 +122,20 @@ class SignalManager:
             "requested_altnames": requested_altnames
         }
         
-    def update_my_altname_access(self, altname, access):
-        pass
+    def update_my_altname_access(self, data):
+        status = "ok"
+        try:
+            for ws in candidate_socket_map.key():
+                if candidate_socket_map[ws]["altname"] == data["altname"]:
+                    candidate_socket_map[ws]["access"] = data["access"]
+            status = "ok"
+        except Exception as e:
+            print("Exception occured in requested_altnames: {}".format(e))
+        return {
+            "signal_response": "access_updated",
+            status: status
+        }
+        
         
     async def signal_directive_switch(self, websocket, data):
         # Please note: if signal socket gone, simply candidate is loss. Hence

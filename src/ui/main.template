@@ -5,6 +5,9 @@
 </head>
 <body>
  <p> Welcome to wss </p>
+ <div id="debug_panel">
+ <div>
+ 
  <script>
  /* There is two websocket communication. 
  1. using websocket direct for signaling.
@@ -28,6 +31,15 @@
  
  */
 	class MainUI {
+	
+		constructor() {
+			this.debug_panel = document.getElementBy("debug_panel");
+		}
+		
+		appendLogToDebug(log) {
+			this.debug_panel
+		}
+		
 		
 	}
  
@@ -37,10 +49,14 @@
 		 this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
 		 this.mainui = mainUI;
 		 
+		 this.signalingSocket.onmessage = (message) => {
+			
+		 };
+		 
 		}
 		
-		get publicAltname() {
-			this.mainui.load_altname
+		loadPublicAltname() {
+			this.mainui.load_altname;
 		}
 		
 		send(json_data) {
@@ -50,12 +66,56 @@
 	}
 	
 	class PeerConnection {
-		constructor
+		constructor(signalServer, mainUI) {
+			this.signalServer = signalServer;
+			this.mainUI = mainUI;
+			this.pc = new RTCPeerConnection({
+				iceServers: [
+				{
+					// Correct scheme 'stun:' and precise subdomain + port
+					urls: [
+					'stun:stun.l.google.com:19302',
+					'stun:stun1.l.google.com:19302',
+					'stun:stun2.l.google.com:19302'
+					]
+				}]
+			});
+			// --- 1. CHANNEL MANAGEMENT: Handle Local Data/Media ---
+			// Create a data channel (required to trigger ICE gathering if you don't use video/audio)
+			this.dataChannel = this.pc.createDataChannel("chat");
+			this.dataChannel.onmessage = (e) => console.log("Received peer message:", e.data);
+			
+			// Listen for incoming data channels from the other peer
+			pc.ondatachannel = (event) => {
+				this.remoteChannel = event.channel;
+				remoteChannel.onmessage = (e) => console.log("Received peer message:", e.data);
+			};
+			
+			// --- 2. ICE GATHERING ---
+			pc.onicecandidate = (event) => {
+				if (event.candidate && signalingSocket.readyState === WebSocket.OPEN) {
+					signalingSocket.send(JSON.stringify({
+					type: 'ice-candidate',
+					candidate: event.candidate
+					}));
+				}
+			};
+			
+		}
+		
+		send(message) {
+		}
+		
+		
+		
 	}
 	
 	class ChatRoom {
 	
 	}
+	
+	
+	
  </script>
 </body>
 </html>
