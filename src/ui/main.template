@@ -81,11 +81,11 @@
 			states = {
 				"initial": ["closed", "candiate_gathered"],
 				"candiate_gathered": ["candidate_registered", "closed"],
-				"candidate_registered": ["offer_forwarded", "offer_received"],
-				"peerAdded": ["offer_forwarded", "answer_forwarded"],
+				"candidate_registered": ["offer_forwarded"],
+				"peerAdded": ["answer_forwarded"],
 				"offer_forwarded": ["answer_received"],
 				"answer_received": ["channel_established"],
-				"offer_received": ["answer_forwarded"],
+				"offer_received": ["peerAdded"],
 				"answer_forwarded": ["channel_established"],
 				"channel_established": ["bye"]
 				"bye": ["closed"]
@@ -153,12 +153,6 @@
 				
 			}
 			
-			triggerCandidateGathering() {
-				
-				
-			}
-			
-			
 			send(message) {
 			}
 			
@@ -208,8 +202,8 @@
 				this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
 				this.mainUI = mainUI;
 				this.peerConnections = {}
-				this.signalingSocket.onmessage = (message) => {
-				
+				this.signalingSocket.onmessage = (response) => {
+					response.signal_response : {'registered_candidate': [ok, nok], 'altname_candidates': [], 'forwarded_offer': [ok, nok], 'fowarded_answer':[ok, nok]}
 				};
 			 
 			}
