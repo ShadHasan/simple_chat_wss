@@ -92,10 +92,10 @@
 				"closed": null
 			}
 			
-			// expected_state = states[current_states];
+			// expected_state = states[current_state];
 		
 			async constructor(mainUI, altname, offerType, label) {
-				this.current_states = "initial"
+				this.current_state = "initial"
 				this.mainUI = mainUI;
 				this.altname = altname;
 				this.signalServer = signalServer;
@@ -116,12 +116,16 @@
 				// --- 1. CHANNEL MANAGEMENT: Handle Local Data/Media ---
 				// Create a data channel (required to trigger ICE gathering if you don't use video/audio)
 				this.dataChannel = this.pc.createDataChannel("chat");
-				this.dataChannel.onmessage = (e) => console.log("Received peer message:", e.data);
+				this.dataChannel.onmessage = (e) => {
+					console.log("Received peer message:", e.data);
+				}
 				
 				// Listen for incoming data channels from the other peer
 				this.pc.ondatachannel = (event) => {
 					this.remoteChannel = event.channel;
-					this.remoteChannel.onmessage = (e) => console.log("Received peer message:", e.data);
+					this.remoteChannel.onmessage = (e) => {
+						console.log("Received peer message:", e.data);
+					}
 				};
 				
 				// 2. Generate the local SDP description object
@@ -142,11 +146,11 @@
 				  switch (pc.connectionState) {
 					case "disconnected":
 					case "failed":
-					  console.log("Network dropped. Triggering automatic cleanup.");
-					  terminatePeerConnection(pc, activeChannels, localStream);
+					  this.mainUI.logger.appendLog("Network dropped. Triggering automatic cleanup.", "error");
+					  this.close();
 					  break;
 					case "closed":
-					  console.log("Connection securely finalized.");
+					  this.mainUI.logger.appendLog("WebRTC Peer Connection fully destroyed.", "info");
 					  break;
 				  }
 				};
@@ -154,7 +158,7 @@
 			}
 			
 			send(message) {
-				if (this.current_states == "channel_established") {
+				if (this.current_state == "channel_established") {
 					// use datachannel to send message
 				} else {
 					this.mainUI.logger.appendLog("Data channel is not ready", "error");
@@ -190,13 +194,15 @@
 			  
 			  // 4. Garbage collection cleanup
 			  this.pc = null;
-			  console.log("WebRTC Peer Connection fully destroyed.");
+			  this.mainUI.logger.appendLog("WebRTC Peer Connection fully destroyed.", "info");
 			}
 			
 			changeState(newState) {
-				if () {
+				if (this.states[this.current_state].includes(newState)) {
+					this.current_state = newState;
+				} else {
+					this.mainUI.logger.appendLog(`Unexpected new state: ${newState} from state: ${this.current_state}`, "error");
 				}
-				return false;
 			}
 			
 		}
