@@ -3,7 +3,7 @@
 <head>
 	<title> Main </title>
 	<!-- Stylesheet Tag (Placed inside <head>) -->
-	<link rel="stylesheet" href="styles.css">
+	<link rel="stylesheet" href="style">
 
 	<!-- JavaScript Tag (Placed inside <head> or before </body>) -->
 	<script src="script.js" defer></script>
@@ -60,10 +60,14 @@
 		
 			constructor() {
 				this.debug_panel = document.getElementBy("debug_panel");
+				this.logger = Logger("logViewer", "levelFilter");
 			}
 			
-			appendLogToDebug(log) {
-				this.debug_panel
+			testLog() {
+				// Seed initial display entries
+				this.logger.appendLog("System initializing execution tree...", "info");
+				this.logger.appendLog("Debug flags verified actively listening.", "debug");
+				this.logger.appendLog("Cron worker pool reporting standard operational thresholds.", "info");
 			}
 			
 			
@@ -75,16 +79,23 @@
 		
 		class PeerConnection {
 			states = {
-				"initial": {},
-				"candiate_gathered": {},
-				"candidate_registered": {},
-				"offer_forwarded": {},
-				"answer_received": {},
-				"offer_received": {},
-				"answer_forwarded": {},
+				"initial": ["closed", "candiate_gathered"],
+				"candiate_gathered": ["candidate_registered", "closed"],
+				"candidate_registered": ["offer_forwarded", "offer_received"],
+				"peerAdded": ["offer_forwarded", "answer_forwarded"],
+				"offer_forwarded": ["answer_received"],
+				"answer_received": ["channel_established"],
+				"offer_received": ["answer_forwarded"],
+				"answer_forwarded": ["channel_established"],
+				"channel_established": ["bye"]
+				"bye": ["closed"]
+				"closed": null
 			}
+			
+			// expected_state = states[current_states];
 		
 			async constructor(mainUI, altname, offerType, label) {
+				this.current_states = "initial"
 				this.mainUI = mainUI;
 				this.altname = altname;
 				this.signalServer = signalServer;
@@ -126,6 +137,19 @@
 					}
 				};
 				
+				// --- 3. CONNECTION CLOSE Log ---
+				pc.onconnectionstatechange = () => {
+				  switch (pc.connectionState) {
+					case "disconnected":
+					case "failed":
+					  console.log("Network dropped. Triggering automatic cleanup.");
+					  terminatePeerConnection(pc, activeChannels, localStream);
+					  break;
+					case "closed":
+					  console.log("Connection securely finalized.");
+					  break;
+				  }
+				};
 				
 			}
 			

@@ -1,8 +1,8 @@
 class Logger {
 	
-	constructor() {
-		this.#logViewer = document.getElementById('logViewer');
-		this.#levelFilter = document.getElementById('levelFilter');
+	constructor(viewerElementId, filterElementId) {
+		this.#logViewer = document.getElementById(viewerElementId);
+		this.#levelFilter = document.getElementById(filterElementId);
 	}
 
 	/**
@@ -82,8 +82,5 @@ class Logger {
 }
 
 logger = Logger()
-// Seed initial display entries
-logger.appendLog("System initializing execution tree...", "info");
-logger.appendLog("Debug flags verified actively listening.", "debug");
-logger.appendLog("Cron worker pool reporting standard operational thresholds.", "info");
+
 	
