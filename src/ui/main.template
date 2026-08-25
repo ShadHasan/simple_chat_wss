@@ -17,7 +17,7 @@
  1. registering candidate
  2. fetching altname
  3. request altname to be my network.
- 4. accept altname to my altname network.   // 3,4 steps allow to directly allow to fetch candidat when altname is available online.
+ 4. accept altname to my altname network.   // 3,4 steps allow to directly allow to fetch candidate when altname is available online.
  5. get candidate of altname from my network // After this ICE client add this candidate
  6. sending offer as altname to other altname 
  7. receiving offer from other altname to my altname 
@@ -48,9 +48,19 @@
 	}
 	
 	class PeerConnection {
+		states = {
+			"initial": {},
+			"candiate_gathered": {},
+			"candidate_registered": {},
+			"offer_forwarded": {},
+			"answer_received": {},
+			"offer_received": {},
+			"answer_forwarded": {},
+		}
 	
-		async constructor(mainUI, offerType, label) {
+		async constructor(mainUI, altname, offerType, label) {
 			this.mainUI = mainUI;
+			this.altname = altname;
 			this.signalServer = signalServer;
 			this.candidate = null;
 			this.label = crypto.randomUUID();
@@ -102,12 +112,44 @@
 		send(message) {
 		}
 		
+		close() {
+			if (!this.pc) return;
+
+		  // 1. Unsubscribe from all event listeners to prevent memory leaks
+		  this.pc.onicecandidate = null;
+		  this.pc.onicegatheringstatechange = null;
+		  this.pc.onconnectionstatechange = null;
+		  this.pc.onsignalingstatechange = null;
+		  this.pc.oniceconnectionstatechange = null;
+		  this.pc.ontrack = null;
+		  this.pc.ondatachannel = null;
+		  
+		  dataChannels = [this.dataChannel, this.remoteChannel];
+		  // 2. Close all active Data Channels
+		  dataChannels.forEach(channel => {
+			if (channel && channel.readyState !== "closed") {
+			  channel.onmessage = null;
+			  channel.onopen = null;
+			  channel.onclose = null;
+			  channel.onerror = null;
+			  channel.close();
+			}
+		  });
+		  
+		  // 3. Close the Peer Connection
+		  this.pc.close();
+		  
+		  // 4. Garbage collection cleanup
+		  this.pc = null;
+		  console.log("WebRTC Peer Connection fully destroyed.");
+		}
+		
 		
 		
 	}
  
 	class SignalManager {
-		static signal_directive = ['register_candidates', 'forward_offer', 'forward_answer', 
+		static const signal_directive = ['register_candidates', 'forward_offer', 'forward_answer', 
 			'my_websocket_requested_altnames', 'forward_network_request', 
 			'forward_network_request_response', 'public_altname', 'request_candidate', 
 			'update_my_altname_access'];
@@ -122,27 +164,35 @@
 		 
 		}
 		
-		createNewPeerConnection(uniquePCName, altname) {
-			let pc = new PeerConnection(this.mainUI);
+		getAllPeerConnections() {
+			return this.peerConnections;
+		}
+		
+		createNewPeerConnection(uniquePCName, altname, offerType) {
+			let pc = new PeerConnection(this.mainUI, altname, offerType);
 			this.peerConnections[uniquePCName] = {
-				"altname": altname
-			}
+				"pc": pc,
+				"": 
+			};
 		}
 		
 		loadPublicAltname() {
 			this.mainUI.load_altname;
 		}
 		
-		checkAndRegisterCandidate(uniquePCName) {
+		checkAndRegisterCandidate(uniquePCName, access=null) {
 			this.mainUI.appendLogToDebug("Checking and registering candidate");
+			if(accept == null)
+				access = "private";
+			
 			if (this.peerConnections.candidate != null && this.signalingSocket.readyState === WebSocket.OPEN) {
 				// 
 				send(JSON.stringify({
 					directive: signal_directive[0],
-					"altname": data["altname"],
-					"client_type": data["client_type"],
-					"access": data["access"],
-					"candidate": 
+					"altname": this.peerConnections[uniquePCName].altname,
+					"client_type": "end",
+					"access": access,
+					"candidate": this.peerConnections[uniquePCName].candidate
 				}));
 				this.mainUI.appendLogToDebug("Checking and registering candidate");
 			} else {
