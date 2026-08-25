@@ -81,8 +81,9 @@ class Logger {
 	}
 }
 
+logger = Logger()
 // Seed initial display entries
-appendLog("System initializing execution tree...", "info");
-appendLog("Debug flags verified actively listening.", "debug");
-appendLog("Cron worker pool reporting standard operational thresholds.", "info");
+logger.appendLog("System initializing execution tree...", "info");
+logger.appendLog("Debug flags verified actively listening.", "debug");
+logger.appendLog("Cron worker pool reporting standard operational thresholds.", "info");
 	

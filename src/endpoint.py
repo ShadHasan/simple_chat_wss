@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 import asyncio
 import uvicorn
 from lib.signal_manager import SignalManager
+from lib.load_static import TemplateMap
 
 
 app = FastAPI()
@@ -18,7 +19,9 @@ app = FastAPI()
 GOOGLE_CLIENT_ID = "223025000144-h24fpvolha8m78bl0askl3sal4agvbt2.apps.googleusercontent.com"
 SECRET_KEY = "oh-lord-in-heave-983409-pullu-pullu"  # Change in production
 ALGORITHM = "HS256"
+
 signal_manager = SignalManager()
+static_loader = TemplateMap.get_instance()
 
 
 class GoogleAuthPayload(BaseModel):
@@ -47,7 +50,8 @@ async def my_generator():
 async def stream_endpoint():
     # You MUST explicitly declare the media_type here
     return StreamingResponse(my_generator(), media_type="text/event-stream")
-    
+
+# --- page ---
 @app.get("/")
 def rool_path():
     with open(os.path.join("ui", "main.template"), "r") as f:
@@ -139,6 +143,20 @@ async def websocket_signal(websocket: WebSocket):
     except (WebSocketDisconnect, ConnectionClosed) as rrr:
         print("Exception capture on websocket connection", rrr)
         del signal_manager.candidate_socket_map[websocket]
+        
+
+# --- static file ---
+@app.get("/static")
+@app.get("/static/<path>")
+def static_files(path=none):
+    if path:
+        typ = path.split(os.sep)[0]
+        content = static_loader.get_template(typ, path)
+    else:
+        content = static_loader.list_dir()
+    response = Response(content=content, status_code=200)
+    return response
+
 
 # ============== Start the server
 if os.environ.get("SSL") == "true":

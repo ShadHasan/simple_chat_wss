@@ -2,215 +2,239 @@
 <html>
 <head>
 	<title> Main </title>
+	<!-- Stylesheet Tag (Placed inside <head>) -->
+	<link rel="stylesheet" href="styles.css">
+
+	<!-- JavaScript Tag (Placed inside <head> or before </body>) -->
+	<script src="script.js" defer></script>
+
 </head>
 <body>
- <p> Welcome to wss </p>
- <div id="debug_panel">
- <div>
- 
- <script>
- /* There is two websocket communication. 
- 1. using websocket direct for signaling.
- 2. using via ICE client for actual communication between clients
- 
- Now, signaling websocket can be used
- 1. registering candidate
- 2. fetching altname
- 3. request altname to be my network.
- 4. accept altname to my altname network.   // 3,4 steps allow to directly allow to fetch candidate when altname is available online.
- 5. get candidate of altname from my network // After this ICE client add this candidate
- 6. sending offer as altname to other altname 
- 7. receiving offer from other altname to my altname 
- 8. receiver will create answer
- 9. sender altname will receive answer  // At this point ICE Client peer connection ready for communication.
- 
- Now, ICE Client
- ICE Client have its datachannel and it is client for remotechannel
- if it has initiated communication mean created then ice client it will use datachannel
- else it will use remotechannel.
- 
- */
-	class MainUI {
-	
-		constructor() {
-			this.debug_panel = document.getElementBy("debug_panel");
-		}
-		
-		appendLogToDebug(log) {
-			this.debug_panel
-		}
-		
-		
-	}
-	
-	class ChatRoom {
-	
-	}
-	
-	class PeerConnection {
-		states = {
-			"initial": {},
-			"candiate_gathered": {},
-			"candidate_registered": {},
-			"offer_forwarded": {},
-			"answer_received": {},
-			"offer_received": {},
-			"answer_forwarded": {},
-		}
-	
-		async constructor(mainUI, altname, offerType, label) {
-			this.mainUI = mainUI;
-			this.altname = altname;
-			this.signalServer = signalServer;
-			this.candidate = null;
-			this.label = crypto.randomUUID();
-			this.pc = new RTCPeerConnection({
-				iceServers: [
-				{
-					// Correct scheme 'stun:' and precise subdomain + port
-					urls: [
-					'stun:stun.l.google.com:19302',
-					'stun:stun1.l.google.com:19302',
-					'stun:stun2.l.google.com:19302'
-					]
-				}]
-			});
-			
-			// --- 1. CHANNEL MANAGEMENT: Handle Local Data/Media ---
-			// Create a data channel (required to trigger ICE gathering if you don't use video/audio)
-			this.dataChannel = this.pc.createDataChannel("chat");
-			this.dataChannel.onmessage = (e) => console.log("Received peer message:", e.data);
-			
-			// Listen for incoming data channels from the other peer
-			this.pc.ondatachannel = (event) => {
-				this.remoteChannel = event.channel;
-				this.remoteChannel.onmessage = (e) => console.log("Received peer message:", e.data);
-			};
-			
-			// 2. Generate the local SDP description object
-			this.offer = await pc.createOffer();
-			
-			// 3. Save it locally (This starts internal ICE gathering)
-			this.pc.setLocalDescription(offer);
-			
-			// --- 2. ICE GATHERING ---
-			this.pc.onicecandidate = (event) => {
-				if (event.candidate) {
-					this.candidate = event.candidate;
-				}
-			};
-			
-			
-		}
-		
-		triggerCandidateGathering() {
-			
-			
-		}
-		
-		
-		send(message) {
-		}
-		
-		close() {
-			if (!this.pc) return;
+	<p> Welcome to wss </p>
+	<div class="log-container">
+        <!-- Toolbar Header -->
+        <div class="log-header">
+            <div class="log-title">System Live Logs</div>
+            <div class="controls">
+                <select id="levelFilter" class="filter-select" onchange="filterLogs()">
+                    <option value="all">All Levels</option>
+                    <option value="info">Info</option>
+                    <option value="warn">Warning</option>
+                    <option value="error">Error</option>
+                    <option value="debug">Debug</option>
+                </select>
+                <button class="btn" onclick="clearLogs()">Clear Console</button>
+                <button class="btn" onclick="generateMockLog()">Simulate Log</button>
+            </div>
+        </div>
 
-		  // 1. Unsubscribe from all event listeners to prevent memory leaks
-		  this.pc.onicecandidate = null;
-		  this.pc.onicegatheringstatechange = null;
-		  this.pc.onconnectionstatechange = null;
-		  this.pc.onsignalingstatechange = null;
-		  this.pc.oniceconnectionstatechange = null;
-		  this.pc.ontrack = null;
-		  this.pc.ondatachannel = null;
-		  
-		  dataChannels = [this.dataChannel, this.remoteChannel];
-		  // 2. Close all active Data Channels
-		  dataChannels.forEach(channel => {
-			if (channel && channel.readyState !== "closed") {
-			  channel.onmessage = null;
-			  channel.onopen = null;
-			  channel.onclose = null;
-			  channel.onerror = null;
-			  channel.close();
-			}
-		  });
-		  
-		  // 3. Close the Peer Connection
-		  this.pc.close();
-		  
-		  // 4. Garbage collection cleanup
-		  this.pc = null;
-		  console.log("WebRTC Peer Connection fully destroyed.");
-		}
-		
-		
-		
-	}
+        <!-- Console Display Box -->
+        <div id="logViewer" class="log-viewer">
+            <!-- JavaScript will insert log rows dynamically here -->
+        </div>
+    </div>
  
-	class SignalManager {
-		static const signal_directive = ['register_candidates', 'forward_offer', 'forward_answer', 
-			'my_websocket_requested_altnames', 'forward_network_request', 
-			'forward_network_request_response', 'public_altname', 'request_candidate', 
-			'update_my_altname_access'];
-	
-		constructor(mainUI) {
-			this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
-			this.mainUI = mainUI;
-			this.peerConnections = {}
-			this.signalingSocket.onmessage = (message) => {
-			
-			};
-		 
-		}
+	<script>
+		/* There is two websocket communication. 
+		1. using websocket direct for signaling.
+		2. using via ICE client for actual communication between clients
+
+		Now, signaling websocket can be used
+		1. registering candidate
+		2. fetching altname
+		3. request altname to be my network.
+		4. accept altname to my altname network.   // 3,4 steps allow to directly allow to fetch candidate when altname is available online.
+		5. get candidate of altname from my network // After this ICE client add this candidate
+		6. sending offer as altname to other altname 
+		7. receiving offer from other altname to my altname 
+		8. receiver will create answer
+		9. sender altname will receive answer  // At this point ICE Client peer connection ready for communication.
+
+		Now, ICE Client
+		ICE Client have its datachannel and it is client for remotechannel
+		if it has initiated communication mean created then ice client it will use datachannel
+		else it will use remotechannel.
+
+		*/
+		class MainUI {
 		
-		getAllPeerConnections() {
-			return this.peerConnections;
-		}
-		
-		createNewPeerConnection(uniquePCName, altname, offerType) {
-			let pc = new PeerConnection(this.mainUI, altname, offerType);
-			this.peerConnections[uniquePCName] = {
-				"pc": pc,
-				"": 
-			};
-		}
-		
-		loadPublicAltname() {
-			this.mainUI.load_altname;
-		}
-		
-		checkAndRegisterCandidate(uniquePCName, access=null) {
-			this.mainUI.appendLogToDebug("Checking and registering candidate");
-			if(accept == null)
-				access = "private";
-			
-			if (this.peerConnections.candidate != null && this.signalingSocket.readyState === WebSocket.OPEN) {
-				// 
-				send(JSON.stringify({
-					directive: signal_directive[0],
-					"altname": this.peerConnections[uniquePCName].altname,
-					"client_type": "end",
-					"access": access,
-					"candidate": this.peerConnections[uniquePCName].candidate
-				}));
-				this.mainUI.appendLogToDebug("Checking and registering candidate");
-			} else {
-				this.mainUI.appendLogToDebug("Either candidate or websocket is not ready");
+			constructor() {
+				this.debug_panel = document.getElementBy("debug_panel");
 			}
 			
+			appendLogToDebug(log) {
+				this.debug_panel
+			}
+			
+			
 		}
 		
-		send(data) {
-			signalingSocket.send(data);
+		class ChatRoom {
+		
+		}
+		
+		class PeerConnection {
+			states = {
+				"initial": {},
+				"candiate_gathered": {},
+				"candidate_registered": {},
+				"offer_forwarded": {},
+				"answer_received": {},
+				"offer_received": {},
+				"answer_forwarded": {},
+			}
+		
+			async constructor(mainUI, altname, offerType, label) {
+				this.mainUI = mainUI;
+				this.altname = altname;
+				this.signalServer = signalServer;
+				this.candidate = null;
+				this.label = crypto.randomUUID();
+				this.pc = new RTCPeerConnection({
+					iceServers: [
+					{
+						// Correct scheme 'stun:' and precise subdomain + port
+						urls: [
+						'stun:stun.l.google.com:19302',
+						'stun:stun1.l.google.com:19302',
+						'stun:stun2.l.google.com:19302'
+						]
+					}]
+				});
+				
+				// --- 1. CHANNEL MANAGEMENT: Handle Local Data/Media ---
+				// Create a data channel (required to trigger ICE gathering if you don't use video/audio)
+				this.dataChannel = this.pc.createDataChannel("chat");
+				this.dataChannel.onmessage = (e) => console.log("Received peer message:", e.data);
+				
+				// Listen for incoming data channels from the other peer
+				this.pc.ondatachannel = (event) => {
+					this.remoteChannel = event.channel;
+					this.remoteChannel.onmessage = (e) => console.log("Received peer message:", e.data);
+				};
+				
+				// 2. Generate the local SDP description object
+				this.offer = await pc.createOffer();
+				
+				// 3. Save it locally (This starts internal ICE gathering)
+				this.pc.setLocalDescription(offer);
+				
+				// --- 2. ICE GATHERING ---
+				this.pc.onicecandidate = (event) => {
+					if (event.candidate) {
+						this.candidate = event.candidate;
+					}
+				};
+				
+				
+			}
+			
+			triggerCandidateGathering() {
+				
+				
+			}
+			
+			
+			send(message) {
+			}
+			
+			close() {
+				if (!this.pc) return;
+
+			  // 1. Unsubscribe from all event listeners to prevent memory leaks
+			  this.pc.onicecandidate = null;
+			  this.pc.onicegatheringstatechange = null;
+			  this.pc.onconnectionstatechange = null;
+			  this.pc.onsignalingstatechange = null;
+			  this.pc.oniceconnectionstatechange = null;
+			  this.pc.ontrack = null;
+			  this.pc.ondatachannel = null;
+			  
+			  dataChannels = [this.dataChannel, this.remoteChannel];
+			  // 2. Close all active Data Channels
+			  dataChannels.forEach(channel => {
+				if (channel && channel.readyState !== "closed") {
+				  channel.onmessage = null;
+				  channel.onopen = null;
+				  channel.onclose = null;
+				  channel.onerror = null;
+				  channel.close();
+				}
+			  });
+			  
+			  // 3. Close the Peer Connection
+			  this.pc.close();
+			  
+			  // 4. Garbage collection cleanup
+			  this.pc = null;
+			  console.log("WebRTC Peer Connection fully destroyed.");
+			}
+			
+			
+			
+		}
+	 
+		class SignalManager {
+			static const signal_directive = ['register_candidates', 'forward_offer', 'forward_answer', 
+				'my_websocket_requested_altnames', 'forward_network_request', 
+				'forward_network_request_response', 'public_altname', 'request_candidate', 
+				'update_my_altname_access'];
+		
+			constructor(mainUI) {
+				this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
+				this.mainUI = mainUI;
+				this.peerConnections = {}
+				this.signalingSocket.onmessage = (message) => {
+				
+				};
+			 
+			}
+			
+			getAllPeerConnections() {
+				return this.peerConnections;
+			}
+			
+			createNewPeerConnection(uniquePCName, altname, offerType) {
+				let pc = new PeerConnection(this.mainUI, altname, offerType);
+				this.peerConnections[uniquePCName] = {
+					"pc": pc,
+					"": 
+				};
+			}
+			
+			loadPublicAltname() {
+				this.mainUI.load_altname;
+			}
+			
+			checkAndRegisterCandidate(uniquePCName, access=null) {
+				this.mainUI.appendLogToDebug("Checking and registering candidate");
+				if(accept == null)
+					access = "private";
+				
+				if (this.peerConnections.candidate != null && this.signalingSocket.readyState === WebSocket.OPEN) {
+					// 
+					send(JSON.stringify({
+						directive: signal_directive[0],
+						"altname": this.peerConnections[uniquePCName].altname,
+						"client_type": "end",
+						"access": access,
+						"candidate": this.peerConnections[uniquePCName].candidate
+					}));
+					this.mainUI.appendLogToDebug("Checking and registering candidate");
+				} else {
+					this.mainUI.appendLogToDebug("Either candidate or websocket is not ready");
+				}
+				
+			}
+			
+			send(data) {
+				signalingSocket.send(data);
+			}
+		
 		}
 	
-	}
 	
-	
-	
-	
-	
- </script>
+	</script>
+
 </body>
 </html>
