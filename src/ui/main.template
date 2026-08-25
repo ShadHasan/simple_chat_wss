@@ -204,6 +204,36 @@
 				this.peerConnections = {}
 				this.signalingSocket.onmessage = (response) => {
 					response.signal_response : {'registered_candidate': [ok, nok], 'altname_candidates': [], 'forwarded_offer': [ok, nok], 'fowarded_answer':[ok, nok]}
+					
+					switch(response.signal_response) {
+						case "registered_candidate":
+							break;
+						case "altname_candidates":
+							break;
+						case "forwarded_offer":
+							break;
+						case "fowarded_answer":
+							break;
+						case "fowarded_answer":
+							break;
+						case "my_candidate_shared_to_altnames":
+							break;
+						case "access_updated":
+							break
+						case "fowarded_network_request":
+							break;
+						case "forward_network_request_response":
+							break;
+						case "public_altnames":
+							this.mainUI.logger.appendLog("Signal respon with public altnames", "info");
+							this.loadPublicAltname(response.public_altnames);
+							break;
+						default:
+							this.mainUI.logger.appendLog("Unknown signal response", "error");
+							break;
+						
+					}
+					
 				};
 			 
 			}
@@ -215,13 +245,12 @@
 			createNewPeerConnection(uniquePCName, altname, offerType) {
 				let pc = new PeerConnection(this.mainUI, altname, offerType);
 				this.peerConnections[uniquePCName] = {
-					"pc": pc,
-					"": 
+					"pc": pc
 				};
 			}
 			
-			loadPublicAltname() {
-				this.mainUI.load_altname;
+			loadPublicAltname(altnames) {
+				this.mainUI.load_public_altnames(altnames);
 			}
 			
 			checkAndRegisterCandidate(uniquePCName, access=null) {
@@ -229,9 +258,9 @@
 				if(accept == null)
 					access = "private";
 				
-				if (this.peerConnections.candidate != null && this.signalingSocket.readyState === WebSocket.OPEN) {
+				if (this.peerConnections[uniquePCName].candidate != null && this.signalingSocket.readyState === WebSocket.OPEN) {
 					// 
-					send(JSON.stringify({
+					this.send(JSON.stringify({
 						directive: signal_directive[0],
 						"altname": this.peerConnections[uniquePCName].altname,
 						"client_type": "end",

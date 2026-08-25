@@ -52,9 +52,16 @@ class SignalManager:
                 "access": data["access"] if data.get("access") is not None else "private",
                 "requested_altnames": set()
             }
-            return {"signal_response": "registered_candidate", "status": "ok"}
+            del data["directive"]
+            del data["websocket"]
+            data["signal_response"] = "registered_candidate"
+            data["status"] = "ok"
         except:
-            return {"signal_response": "registered_candidate", "status": "nok"}
+            del data["directive"]
+            del data["websocket"]
+            data["signal_response"] = "registered_candidate"
+            data["status"] = "nok"
+        return data
         
         
     def get_public_altname(self, data):
@@ -65,7 +72,11 @@ class SignalManager:
                     altnames.append(candidate_socket_map[ws]["altname"])
         except Exception as e:
             print("Exception occured in fetching public altnames: {}".format(e))
-        return {"signal_response": "public_altnames", "public_altnames": altnames}
+        del data["directive"]
+        del data["websocket"]
+        data["signal_response"] = "public_altnames"
+        data["public_altnames"] = altnames
+        return data
         
     def get_candidate_by_altname(self, data):
         candidates = []
@@ -76,7 +87,11 @@ class SignalManager:
                     candidate_socket_map[ws]["requested_altnames"].add(data["from_altname"])
         except Exception as e:
             print("Exception occured in fetching candidate: {}".format(e))
-        return {"signal_response": "altname_candidates", "altname": data["altname"], "candidates": candidates}
+        del data["directive"]
+        del data["websocket"]
+        data["signal_response"] = "altname_candidates"
+        data["candidates"] = candidates
+        return data
         
     async def forward_signal_to(self, data):
         try:
@@ -104,12 +119,11 @@ class SignalManager:
         except Exception as e:
             print("Exception occured in fetching candidate: {}".format(e))
             status = "nok"
-        return {
-            "signal_response": signal_response, 
-            to_altname=data["to_altname"], 
-            status=status,
-            transaction_id=transaction_id
-        }
+        del data["directive"]
+        del data["websocket"]
+        data["signal_response"] = signal_response
+        data["status"] = status
+        return data
         
     def get_current_websocket_requested_altnames(self, data):
         requested_altnames = []
@@ -117,10 +131,11 @@ class SignalManager:
             requested_altnames = candidate_socket_map[data["websocket"]]["requested_altnames"]
         except Exception as e:
             print("Exception occured in requested_altnames: {}".format(e))
-        return {
-            "signal_response": "my_candidate_shared_to_altnames", 
-            "requested_altnames": requested_altnames
-        }
+        del data["directive"]
+        del data["websocket"]
+        data["signal_response"] = "my_candidate_shared_to_altnames"
+        data["requested_altnames"] = requested_altnames
+        return data
         
     def update_my_altname_access(self, data):
         status = "ok"
@@ -131,10 +146,11 @@ class SignalManager:
             status = "ok"
         except Exception as e:
             print("Exception occured in requested_altnames: {}".format(e))
-        return {
-            "signal_response": "access_updated",
-            status: status
-        }
+        del data["directive"]
+        del data["websocket"]
+        data["signal_response"] = "access_updated"
+        data["status"] = status
+        return data
         
         
     async def signal_directive_switch(self, websocket, data):
@@ -184,7 +200,7 @@ class SignalManager:
                 "callback": update_my_altname_access,
             }
         }
-        data[websocket] = websocket
+        data["websocket"] = websocket
         
         await websocket.send_json(signal_processor[data["directive"]]["call"](data))
 		
