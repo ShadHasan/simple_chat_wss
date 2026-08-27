@@ -63,6 +63,248 @@
 				this.logger = Logger("logViewer", "levelFilter");
 			}
 			
+			chatWindowFactory(chatRoomId, dataChannel) {
+				// 1. Create container window element
+				const chatWindow = document.createElement('div');
+				chatWindow.id = window_uniq;
+				
+				// 2. Inject advanced layout rules via CSS
+				const styles = document.createElement('style');
+				styles.textContent = `
+					#${window_uniq} {
+						position: fixed;
+						bottom: 20px;
+						right: 20px;
+						width: 320px;
+						height: 400px; /* Set baseline height for vertical sizing */
+						min-width: 260px;
+						min-height: 200px;
+						max-width: 600px;
+						max-height: 800px;
+						background: #ffffff;
+						border: 1px solid #e2e8f0;
+						border-radius: 12px;
+						box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+						font-family: system-ui, -apple-system, sans-serif;
+						z-index: 99999;
+						display: flex;
+						flex-direction: column;
+						overflow: hidden;
+						resize: both; /* Enforces native container resizing */
+					}
+					.chat-win-header {
+						background: #1a202c;
+						color: #ffffff;
+						padding: 10px 14px;
+						display: flex;
+						justify-content: space-between;
+						align-items: center;
+						font-size: 14px;
+						font-weight: 600;
+						cursor: move;
+						user-select: none;
+						flex-shrink: 0;
+					}
+					.chat-win-close {
+						background: none;
+						border: none;
+						color: #a0aec0;
+						font-size: 18px;
+						cursor: pointer;
+						padding: 0 4px;
+						line-height: 1;
+					}
+					.chat-win-close:hover {
+						color: #ffffff;
+					}
+					
+					/* Dedicated, scrollable chat logs section */
+					.chat-win-history {
+						flex: 1;
+						padding: 14px;
+						background: #f7fafc;
+						overflow-y: auto;
+						display: flex;
+						flex-direction: column;
+						gap: 10px;
+					}
+					
+					/* Styled individual message bubbles */
+					.chat-bubble {
+						max-width: 80%;
+						padding: 8px 12px;
+						border-radius: 8px;
+						font-size: 13.5px;
+						line-height: 1.4;
+						word-break: break-word;
+					}
+					.bubble-outgoing {
+						background: #3182ce;
+						color: #ffffff;
+						align-self: flex-end;
+						border-bottom-right-radius: 2px;
+					}
+					.bubble-incoming {
+						background: #e2e8f0;
+						color: #2d3748;
+						align-self: flex-start;
+						border-bottom-left-radius: 2px;
+					}
+
+					.chat-win-footer {
+						padding: 12px;
+						display: flex;
+						gap: 8px;
+						background: #ffffff;
+						border-top: 1px solid #edf2f7;
+						flex-shrink: 0;
+					}
+					.chat-win-input {
+						flex: 1;
+						padding: 8px 12px;
+						border: 1px solid #cbd5e0;
+						border-radius: 6px;
+						font-size: 14px;
+						outline: none;
+					}
+					.chat-win-input:focus {
+						border-color: #3182ce;
+					}
+					.chat-win-send {
+						background: #3182ce;
+						color: white;
+						border: none;
+						padding: 8px 14px;
+						border-radius: 6px;
+						cursor: pointer;
+						font-size: 14px;
+						font-weight: 500;
+					}
+					.chat-win-send:hover {
+						background: #2b6cb0;
+					}
+				`;
+				document.head.appendChild(styles);
+
+				// 3. Assemble structural components safely using DOM methods
+				const header = document.createElement('div');
+				header.className = 'chat-win-header';
+				
+				const title = document.createElement('span');
+				title.textContent = 'Chat Room';
+				
+				const closeBtn = document.createElement('button');
+				closeBtn.className = 'chat-win-close';
+				closeBtn.textContent = '×';
+				
+				header.appendChild(title);
+				header.appendChild(closeBtn);
+
+				// Dynamic History Field
+				const historyContainer = document.createElement('div');
+				historyContainer.className = 'chat-win-history';
+
+				const footer = document.createElement('div');
+				footer.className = 'chat-win-footer';
+
+				const input = document.createElement('input');
+				input.type = 'text';
+				input.className = 'chat-win-input';
+				input.placeholder = 'Type your message...';
+
+				const sendBtn = document.createElement('button');
+				sendBtn.className = 'chat-win-send';
+				sendBtn.textContent = 'Send';
+
+				footer.appendChild(input);
+				footer.appendChild(sendBtn);
+
+				chatWindow.appendChild(header);
+				chatWindow.appendChild(historyContainer);
+				chatWindow.appendChild(footer);
+				document.body.appendChild(chatWindow);
+
+				// 4. Drag and Drop Engine
+				let isDragging = false;
+				let startX = 0, startY = 0;
+
+				header.addEventListener('mousedown', dragStart);
+
+				function dragStart(e) {
+					if (e.target === closeBtn) return;
+					isDragging = true;
+					
+					const rect = chatWindow.getBoundingClientRect();
+					startX = e.clientX - rect.left;
+					startY = e.clientY - rect.top;
+
+					// Strip static viewport alignments cleanly to enforce direct pixel mapping
+					chatWindow.style.bottom = 'auto';
+					chatWindow.style.right = 'auto';
+					chatWindow.style.left = `${rect.left}px`;
+					chatWindow.style.top = `${rect.top}px`;
+
+					document.addEventListener('mousemove', dragMove);
+					document.addEventListener('mouseup', dragEnd);
+				}
+
+				function dragMove(e) {
+					if (!isDragging) return;
+
+					let newX = e.clientX - startX;
+					let newY = e.clientY - startY;
+
+					const maxW = window.innerWidth - chatWindow.offsetWidth;
+					const maxH = window.innerHeight - chatWindow.offsetHeight;
+					
+					newX = Math.max(0, Math.min(newX, maxW));
+					newY = Math.max(0, Math.min(newY, maxH));
+
+					chatWindow.style.left = `${newX}px`;
+					chatWindow.style.top = `${newY}px`;
+				}
+
+				function dragEnd() {
+					isDragging = false;
+					document.removeEventListener('mousemove', dragMove);
+					document.removeEventListener('mouseup', dragEnd);
+				}
+
+				// 5. Chat History & Submission Pipeline
+				function appendMessage(text, direction) {
+					const bubble = document.createElement('div');
+					bubble.className = `chat-bubble bubble-${direction}`;
+					bubble.textContent = text;
+					
+					historyContainer.appendChild(bubble);
+					
+					// Snap visibility downward to capture latest bubble
+					historyContainer.scrollTop = historyContainer.scrollHeight;
+				}
+
+				function handleSubmission() {
+					const text = input.value.trim();
+					if (!text) return;
+
+					// Render outgoing text message
+					appendMessage(text, 'outgoing');
+					input.value = '';
+
+					// Simulate an automated incoming server response reply
+					setTimeout(() => {
+						appendMessage(`Received payload: "${text}"`, 'incoming');
+					}, 800);
+				}
+
+				// Bind event interactive links
+				closeBtn.onclick = () => chatWindow.remove();
+				sendBtn.onclick = handleSubmission;
+				input.onkeydown = (e) => { if (e.key === 'Enter') handleSubmission(); };
+
+				
+				return appendMessage;
+			}
+			
 			testLog() {
 				// Seed initial display entries
 				this.logger.appendLog("System initializing execution tree...", "info");
@@ -160,6 +402,7 @@
 			send(message) {
 				if (this.current_state == "channel_established") {
 					// use datachannel to send message
+					this.mainUI.chatWindowFactory(this.label, );
 				} else {
 					this.mainUI.logger.appendLog("Data channel is not ready", "error");
 				}
@@ -217,6 +460,7 @@
 				this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
 				this.mainUI = mainUI;
 				this.peerConnections = {}
+				this.loadGenericInterface();
 				this.signalingSocket.onmessage = (response) => {
 					
 					// below one line is rough, Todo remove
@@ -231,7 +475,9 @@
 							break;
 						case "fowarded_answer":
 							break;
-						case "fowarded_answer":
+						case "incoming_offer":
+							break;
+						case "incoming_answer":
 							break;
 						case "my_candidate_shared_to_altnames":
 							break;
@@ -240,6 +486,10 @@
 						case "fowarded_network_request":
 							break;
 						case "forward_network_request_response":
+							break;
+						case "incoming_network_request":
+							break;
+						case "incoming_network_request_response":
 							break;
 						case "public_altnames":
 							this.mainUI.logger.appendLog("Signal respon with public altnames", "info");
@@ -266,10 +516,24 @@
 				};
 			}
 			
+			// Related to loading interface
+			loadGenericInterface() {
+				this.mainUI.main();
+			}
+			
 			loadPublicAltname(altnames) {
 				this.mainUI.load_public_altnames(altnames);
 			}
 			
+			loadAndHighlightIncomingOffer() {
+				
+			}
+			
+			loadChatWindowOnIncomingAnswer() {
+				
+			}
+			
+			// Signal function related
 			checkAndRegisterCandidate(uniquePCName, access=null) {
 				this.mainUI.appendLogToDebug("Checking and registering candidate");
 				if(accept == null)
@@ -291,6 +555,37 @@
 				
 			}
 			
+			sendOffer(fromAltname, toAltname) {
+				
+			}
+			
+			signalDeclineOffer(fromAltname, toAltname) {
+				// this might offer due to issue of signal server.
+			}
+			
+			incomingOffer(fromAltname, toAltname) {
+			
+			}
+			
+			sendAnswer(fromAltname, toAltname) {
+				// if we want to decline offer. we need to do here.
+			}
+			SignalDeclineAnswer(fromAltname, toAltname) {
+				
+			}
+			incomingAnswer(fromAltname, toAltname) {
+				
+			}
+			
+			requestNetwork(fromAltname, toAltname) {
+				
+			}
+			
+			requestedNetworkResponse(fromAltname, toAltname) {
+				
+			}
+			
+			// Generic websocket send.
 			send(data) {
 				signalingSocket.send(data);
 			}

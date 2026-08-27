@@ -101,14 +101,18 @@ class SignalManager:
             forward_payload = data["forward_payload"]
             
             if data["directive"] = "forward_offer":
+                data["directive"] = "incoming_offer"
                 signal_response = "fowarded_offer"
             elif data["directive"] == "forward_answer":
+                data["directive"] = "incoming_answer"
                 signal_response = "fowarded_answer"
             
             elif data["directive"] == "forward_network_request":
+                data["directive"] = "incoming_network_request"
                 signal_response = "fowarded_network_request"
             
             elif data["directive"] == "forward_network_request_response":
+                data["directive"] = "incoming_network_request_response"
                 signal_response = "fowarded_network_request_response"
             
         
@@ -188,6 +192,18 @@ class SignalManager:
                 "call": forward_signal_to,
             },
             "forward_network_request_response": {
+                "call": forward_signal_to,
+            },
+            "incoming_offer": {
+                "call": forward_signal_to,
+            },
+            "incoming_answer": {
+                "call": forward_signal_to,
+            },
+            "incoming_network_request": {
+                "call": forward_signal_to,
+            },
+            "incoming_network_request_response": {
                 "call": forward_signal_to,
             },
             "public_altname": {
