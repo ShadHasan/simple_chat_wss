@@ -2,11 +2,170 @@
 <html>
 <head>
 	<title> Main </title>
+	
+	    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+        }
+
+        .workspace {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .main-panel-1 {
+            flex: 2.5;
+            height: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, 50%);
+            grid-template-rows: repeat(2, 50%);
+            transition: flex 0.3s ease;
+        }
+
+        .main-panel-2 {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: flex 0.3s ease, max-width 0.3s ease;
+            position: relative;
+        }
+
+        .main-panel-2.minimized {
+            flex: 0;
+            max-width: 0;
+            overflow: hidden;
+            border: none;
+        }
+
+        .panel {
+            border: 1px solid #ccc;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .title-bar {
+            background: #e2e8f0;
+            padding: 8px 12px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #334155;
+            border-bottom: 1px solid #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .content {
+            padding: 15px;
+            flex: 1;
+            overflow-y: auto;
+            color: #64748b;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px; /* Adds clean spacing between appended line entries */
+        }
+
+        /* Styling helper to ensure appended rows behave nicely as 'single line entries' */
+        .line-entry {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 6px 0;
+            border-bottom: 1px dashed #e2e8f0;
+            flex-wrap: wrap; /* Prevents overflow if content is wider than the panel */
+        }
+
+        .line-entry:last-child {
+            border-bottom: none;
+        }
+
+        /* Generic standard sizing for elements injected into line entries */
+        .line-entry input[type="text"] {
+            padding: 4px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            flex: 1;
+            min-width: 100px;
+        }
+
+        .line-entry button {
+            padding: 4px 10px;
+            background: #0284c7;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .line-entry img {
+            max-height: 32px;
+            width: auto;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .toggle-btn {
+            background: #cbd5e1;
+            border: none;
+            border-radius: 4px;
+            padding: 2px 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            color: #334155;
+        }
+
+        .toggle-btn:hover {
+            background: #94a3b8;
+        }
+
+        .restore-trigger {
+            display: none;
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            z-index: 10;
+            background: #334155;
+            color: #ffffff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-size: 12px;
+        }
+
+        .restore-trigger.visible {
+            display: block;
+        }
+    </style>
+	
 	<!-- Stylesheet Tag (Placed inside <head>) -->
 	<link rel="stylesheet" href="style">
 
 	<!-- JavaScript Tag (Placed inside <head> or before </body>) -->
 	<script src="script.js" defer></script>
+	
 
 </head>
 <body>
@@ -33,6 +192,89 @@
             <!-- JavaScript will insert log rows dynamically here -->
         </div>
     </div>
+	
+	<div class="workspace">
+        <button id="restoreBtn" class="restore-trigger">◄ Restore Panel 2</button>
+
+        <!-- First Panel (Quadrant View) -->
+        <div class="main-panel-1">
+            <div class="panel">
+                <div class="title-bar">Panel 1A</div>
+                <div id="panel-1a" class="content"></div>
+            </div>
+            <div class="panel">
+                <div class="title-bar">Panel 1B</div>
+                <div id="panel-1b" class="content"></div>
+            </div>
+            <div class="panel">
+                <div class="title-bar">Panel 1C</div>
+                <div id="panel-1c" class="content"></div>
+            </div>
+            <div class="panel">
+                <div class="title-bar">Panel 1D</div>
+                <div id="panel-1d" class="content"></div>
+            </div>
+        </div>
+
+        <!-- Second Panel -->
+        <div id="sidePanel" class="main-panel-2">
+            <div class="panel">
+                <div class="title-bar">
+                    <span>Panel 2</span>
+                    <button id="minimizeBtn" class="toggle-btn" title="Minimize Panel">▬</button>
+                </div>
+                <div id="panel-2" class="content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Core layout toggles
+        const sidePanel = document.getElementById('sidePanel');
+        const minimizeBtn = document.getElementById('minimizeBtn');
+        const restoreBtn = document.getElementById('restoreBtn');
+
+        minimizeBtn.addEventListener('click', () => {
+            sidePanel.classList.add('minimized');
+            restoreBtn.classList.add('visible');
+        });
+
+        restoreBtn.addEventListener('click', () => {
+            sidePanel.classList.remove('minimized');
+            restoreBtn.classList.remove('visible');
+        });
+
+        /**
+         * Appends an HTML string as a distinct single line entry inside a designated panel.
+         * @param {string} panelId - The HTML id of the panel target container (e.g., 'panel-1a')
+         * @param {string} htmlString - The string representing the HTML to insert
+         */
+        function appendPanelEntry(panelId, htmlString) {
+            const container = document.getElementById(panelId);
+            if (!container) {
+                console.error(`Panel container with id "${panelId}" not found.`);
+                return;
+            }
+
+            // Create a wrapper row to encapsulate the item cleanly as a single entry block
+            const wrapper = document.createElement('div');
+            wrapper.className = 'line-entry';
+            wrapper.innerHTML = htmlString;
+
+            container.appendChild(wrapper);
+            
+            // Auto scroll container down to show the latest entry
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // --- Demo Examples ---
+        // You can run variations of these lines in your console to test it live:
+        appendPanelEntry('panel-1a', '<p>This is just a simple paragraph block entry.</p>');
+        appendPanelEntry('panel-1b', '<button onclick="alert(\'Clicked!\')">Action Button</button> <span>Click me</span>');
+        appendPanelEntry('panel-1c', '<label>Name:</label> <input type="text" placeholder="Enter text here...">');
+        appendPanelEntry('panel-1d', '<img src="https://placeholder.com" alt="icon"> <span>Status: Active</span>');
+        appendPanelEntry('panel-2', '<p>Sidebar log row item #1</p>');
+    </script>
  
 	<script>
 		/* There is two websocket communication. 
@@ -370,16 +612,13 @@
 					}
 				};
 				
-				// 2. Generate the local SDP description object
-				this.offer = await pc.createOffer();
-				
-				// 3. Save it locally (This starts internal ICE gathering)
-				this.pc.setLocalDescription(offer);
+				this.createOffer();
 				
 				// --- 2. ICE GATHERING ---
 				this.pc.onicecandidate = (event) => {
 					if (event.candidate) {
 						this.candidate = event.candidate;
+						this.current_state = "candiate_gathered";
 					}
 				};
 				
@@ -397,6 +636,24 @@
 				  }
 				};
 				
+			}
+			
+			createOffer() {
+				// 2. Generate the local SDP description object
+				this.offer = await pc.createOffer();
+				
+				// 3. Save it locally (This starts internal ICE gathering)
+				this.pc.setLocalDescription(offer);
+			}
+			
+			async createAnwer(remoteSessionDescriptionProtocol) {
+				await pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
+				const answer = await pc.createAnswer();
+				await pc.setLocalDescription(answer);
+			}
+			
+			createBye() {
+			
 			}
 			
 			send(message) {
@@ -451,10 +708,12 @@
 		}
 	 
 		class SignalManager {
-			static const signal_directive = ['register_candidates', 'forward_offer', 'forward_answer', 
+			#signal_directive = ['register_candidates', 'forward_offer', 'forward_answer', 
 				'my_websocket_requested_altnames', 'forward_network_request', 
 				'forward_network_request_response', 'public_altname', 'request_candidate', 
 				'update_my_altname_access'];
+				
+			#possible_network_request = ["accepted", "rejected"];
 		
 			constructor(mainUI) {
 				this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
@@ -468,12 +727,28 @@
 					
 					switch(response.signal_response) {
 						case "registered_candidate":
+							if (response.status == "ok") {
+								this.mainUI.logger.appendLog("candidate registered successfully", "info");
+							} else {
+								this.mainUI.logger.appendLog("candi registeration failed", "error");
+							}
 							break;
 						case "altname_candidates":
+							loadPublicAltname(response.candidates);
 							break;
 						case "forwarded_offer":
+							if (response.status == "ok") {
+								this.mainUI.logger.appendLog("Forwared offer successfully", "info");
+							} else {
+								this.mainUI.logger.appendLog("Offer forward fail", "error");
+							}
 							break;
 						case "fowarded_answer":
+							if (response.status == "ok") {
+								this.mainUI.logger.appendLog("Forwared answer successfully", "info");
+							} else {
+								this.mainUI.logger.appendLog("Answer forward fail", "error");
+							}
 							break;
 						case "incoming_offer":
 							break;
@@ -535,7 +810,7 @@
 			
 			// Signal function related
 			checkAndRegisterCandidate(uniquePCName, access=null) {
-				this.mainUI.appendLogToDebug("Checking and registering candidate");
+				this.mainUI.logger.appendLog("Checking and registering candidate", "info");
 				if(accept == null)
 					access = "private";
 				
@@ -548,14 +823,15 @@
 						"access": access,
 						"candidate": this.peerConnections[uniquePCName].candidate
 					}));
-					this.mainUI.appendLogToDebug("Checking and registering candidate");
+					this.mainUI.logger.appendLog("Send candidate registeration", "info");
 				} else {
-					this.mainUI.appendLogToDebug("Either candidate or websocket is not ready");
+					this.mainUI.logger.appendLog("Either candidate or websocket is not ready", "error");
 				}
 				
 			}
 			
 			sendOffer(fromAltname, toAltname) {
+				this.mainUI.logger.appendLog("Sending network request response", "info");
 				
 			}
 			
@@ -578,11 +854,26 @@
 			}
 			
 			requestNetwork(fromAltname, toAltname) {
-				
+				this.mainUI.logger.appendLog("Sending network request", "info");
+				this.send(JSON.stringify({
+					directive: signal_directive[4],
+					"from_altname": fromAltname
+					"to_altname": toAltname
+				}));
 			}
 			
-			requestedNetworkResponse(fromAltname, toAltname) {
-				
+			sendNetworkResponse(fromAltname, toAltname, networkRequest) {
+				this.mainUI.logger.appendLog("Sending network request response", "info");
+				if (this.#possible_network_request.includes(networkRequest)) {
+					this.send(JSON.stringify({
+						directive: signal_directive[5],
+						"from_altname": fromAltname
+						"to_altname": toAltname,
+						"network_request": networkRequest
+					}));
+				} else {
+					this.mainUI.logger.appendLog("Network request can be either accepted and rejected", "error");
+				}
 			}
 			
 			// Generic websocket send.
