@@ -574,16 +574,17 @@
 				"channel_established": ["bye"]
 				"bye": ["closed"]
 				"closed": null
-			}
+			};
 			
 			// expected_state = states[current_state];
 		
 			async constructor(mainUI, altname, offerType, label) {
-				this.current_state = "initial"
+				this.current_state = "initial";
 				this.mainUI = mainUI;
 				this.altname = altname;
 				this.signalServer = signalServer;
 				this.candidate = null;
+				this.offer = null;
 				this.label = crypto.randomUUID();
 				this.pc = new RTCPeerConnection({
 					iceServers: [
@@ -612,7 +613,19 @@
 					}
 				};
 				
-				this.createOffer();
+				
+				
+				this.ldpOfferSet = new Promise((resolve) => {
+					// Generate the local SDP description object with offer
+					// Save it locally (This starts internal ICE gathering)
+					offer = this.pc.createOffer();
+					this.pc.setLocalDescription(offer);
+					resolve();
+				});
+				
+				this.ldpOfferSet.then(() => {
+					this.mainUI.logger.appendLog("LDP set with offer is ready", "info");
+				});
 				
 				// --- 2. ICE GATHERING ---
 				this.pc.onicecandidate = (event) => {
@@ -638,23 +651,30 @@
 				
 			}
 			
-			createOffer() {
-				// 2. Generate the local SDP description object
-				this.offer = await pc.createOffer();
-				
-				// 3. Save it locally (This starts internal ICE gathering)
-				this.pc.setLocalDescription(offer);
+			createAnwerPromise(remoteSessionDescriptionProtocol) {
+				this.mainUI.logger.appendLog("Creating promise for LDP set with answer", "info");
+				this.ldpAnswerSet = new Promise((resolve) => {
+					// Generate the local SDP description object with answer
+					this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
+					answer = this.pc.createAnswer();
+					this.pc.setLocalDescription(answer);
+					resolve(True);
+				});
+				this.ldpAnswerSet.then(() => {
+					this.mainUI.logger.appendLog("LDP set with answer is ready", "info");
+				});
+				this.mainUI.logger.appendLog("Promise for LDP set with answer created", "info");
 			}
 			
-			async createAnwer(remoteSessionDescriptionProtocol) {
-				await pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
-				const answer = await pc.createAnswer();
-				await pc.setLocalDescription(answer);
+			updateOfferLDP_RDP(remoteSessionDescriptionProtocol) {
+				this.mainUI.logger.appendLog("Updating Offer LDP set with rdp", "info");
+				this.ldpOfferSet.then(() => {
+					await this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
+					this.mainUI.logger.appendLog("Updated Offer LDP set with rdp", "info");
+				});
+			
 			}
 			
-			createBye() {
-			
-			}
 			
 			send(message) {
 				if (this.current_state == "channel_established") {
@@ -728,13 +748,11 @@
 					switch(response.signal_response) {
 						case "registered_candidate":
 							if (response.status == "ok") {
+								this.peerConnections[response.pc_uuid].changeState("candidate_registered");
 								this.mainUI.logger.appendLog("candidate registered successfully", "info");
 							} else {
-								this.mainUI.logger.appendLog("candi registeration failed", "error");
+								this.mainUI.logger.appendLog("candidate registeration failed", "error");
 							}
-							break;
-						case "altname_candidates":
-							loadPublicAltname(response.candidates);
 							break;
 						case "forwarded_offer":
 							if (response.status == "ok") {
@@ -751,8 +769,13 @@
 							}
 							break;
 						case "incoming_offer":
+							this.mainUI.logger.appendLog("Incoming offer", "info");
+							this.peerConnections[response.pc_uuid].createAnwerPromise(response.sdp);
 							break;
 						case "incoming_answer":
+							break;
+						case "altname_candidates":
+							loadPublicAltname(response.candidates);
 							break;
 						case "my_candidate_shared_to_altnames":
 							break;
@@ -817,11 +840,12 @@
 				if (this.peerConnections[uniquePCName].candidate != null && this.signalingSocket.readyState === WebSocket.OPEN) {
 					// 
 					this.send(JSON.stringify({
+						pc_uuid: uniquePCName,
 						directive: signal_directive[0],
-						"altname": this.peerConnections[uniquePCName].altname,
-						"client_type": "end",
-						"access": access,
-						"candidate": this.peerConnections[uniquePCName].candidate
+						altname: this.peerConnections[uniquePCName].altname,
+						client_type: "end",
+						access: access,
+						candidate: this.peerConnections[uniquePCName].candidate
 					}));
 					this.mainUI.logger.appendLog("Send candidate registeration", "info");
 				} else {
@@ -830,35 +854,38 @@
 				
 			}
 			
-			sendOffer(fromAltname, toAltname) {
-				this.mainUI.logger.appendLog("Sending network request response", "info");
-				
+			sendOffer(uniquePCName, fromAltname, toAltname) {
+				this.mainUI.logger.appendLog("Sending offer", "info");
+				this.send(JSON.stringify({
+					pc_uuid: uniquePCName,
+					sdp: this.peerConnections[uniquePCName].localDescription
+				}));
 			}
 			
-			signalDeclineOffer(fromAltname, toAltname) {
+			signalDeclineOffer(uniquePCName, fromAltname, toAltname) {
 				// this might offer due to issue of signal server.
 			}
 			
-			incomingOffer(fromAltname, toAltname) {
-			
+			sendAnswer(uniquePCName, fromAltname, toAltname) {
+				// Here answer can be done to reject offer for different reason.
+				this.mainUI.logger.appendLog("Sending offer", "info");
+				this.send(JSON.stringify({
+					pc_uuid: uniquePCName,
+					sdp: this.peerConnections[uniquePCName].localDescription
+				}));
 			}
 			
-			sendAnswer(fromAltname, toAltname) {
-				// if we want to decline offer. we need to do here.
+			SignalDeclineAnswer(uniquePCName, fromAltname, toAltname) {
+				// this might offer due to issue of signal server.
 			}
-			SignalDeclineAnswer(fromAltname, toAltname) {
-				
-			}
-			incomingAnswer(fromAltname, toAltname) {
-				
-			}
+			
 			
 			requestNetwork(fromAltname, toAltname) {
 				this.mainUI.logger.appendLog("Sending network request", "info");
 				this.send(JSON.stringify({
 					directive: signal_directive[4],
-					"from_altname": fromAltname
-					"to_altname": toAltname
+					from_altname: fromAltname
+					to_altname: toAltname
 				}));
 			}
 			
@@ -867,8 +894,8 @@
 				if (this.#possible_network_request.includes(networkRequest)) {
 					this.send(JSON.stringify({
 						directive: signal_directive[5],
-						"from_altname": fromAltname
-						"to_altname": toAltname,
+						from_altname: fromAltname
+						to_altname: toAltname,
 						"network_request": networkRequest
 					}));
 				} else {
