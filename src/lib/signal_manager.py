@@ -122,27 +122,23 @@ class SignalManager:
         data["networks_altnames"] = altnames
         return data
         
-    def get_candidate_by_altname(self, data):
-        candidates = []
+    def get_candidate_by_pc_uuid(self, data):
+        candidate = None
         try:
-            for ws in candidate_socket_map.key():
-                if candidate_socket_map[ws]["altname"] == data["altname"]:
-                    candidate.append(candidate_socket_map[ws]["candidate"])
-                    candidate_socket_map[ws]["requested_altnames"].add(data["from_altname"])
+            pc_uuid = data["pc_uuid"]
+            candidate = candidate_socket_map[SignalManager.allocate_pc_uuid[pc_uuid]["ws"]][pc_uuid]["candidate"]
         except Exception as e:
             print("Exception occured in fetching candidate: {}".format(e))
         del data["directive"]
         del data["websocket"]
-        data["signal_response"] = "altname_candidates"
-        data["candidates"] = candidates
+        data["signal_response"] = "altname_candidate"
+        data["candidates"] = candidate
         return data
         
     async def forward_signal_to(self, data):
         try:
-            from_altname = data["from_altname"]
+            from_altname = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"]
             to_altname = data["to_altname"]
-            transaction_id = data["transaction_id"]
-            forward_payload = data["forward_payload"]
             
             if data["directive"] = "forward_offer":
                 data["directive"] = "incoming_offer"
@@ -166,6 +162,7 @@ class SignalManager:
             
         
             for ws in candidate_socket_map.key():
+                for 
                 if candidate_socket_map[ws]["altname"] == to_altname:
                     await ws.send_json(data)
             status = "ok"

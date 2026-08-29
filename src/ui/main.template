@@ -752,7 +752,7 @@
 					switch(response.signal_response) {
 						case "registered_candidate":
 							if (response.status == "ok") {
-								this.peerConnections[response.pc_uuid].changeState("candidate_registered");
+								this.peerConnections[response.pc_uuid].pc.changeState("candidate_registered");
 								this.mainUI.logger.appendLog("candidate registered successfully", "info");
 							} else {
 								this.mainUI.logger.appendLog("candidate registeration failed", "error");
@@ -774,11 +774,15 @@
 							break;
 						case "incoming_offer":
 							this.mainUI.logger.appendLog("Incoming offer", "info");
-							this.peerConnections[response.pc_uuid].createAnwerPromise(response.sdp);
+							this.peerConnections[response.answer_pc_uuid]["offer_pc_uuid"] = response.offer_pc_uuid;
+							this.peerConnections[response.answer_pc_uuid]["remote_pc_uuid"] = response.offer_pc_uuid;
+							this.peerConnections[response.answer_pc_uuid].pc.createAnwerPromise(response.sdp);
 							break;
 						case "incoming_answer":
 							this.mainUI.logger.appendLog("Incoming answer", "info");
-							this.peerConnections[response.pc_uuid].updateOfferLDP_RDP(response.sdp);
+							this.peerConnections[response.offer_pc_uuid]["answer_pc_uuid"] = response.answer_pc_uuid;
+							this.peerConnections[response.offer_pc_uuid]["remote_pc_uuid"] = response.answer_pc_uuid;
+							this.peerConnections[response.offer_pc_uuid].pc.updateOfferLDP_RDP(response.sdp);
 							break;
 						case "altname_candidates":
 							loadPublicAltname(response.candidates);
@@ -842,7 +846,7 @@
 					case "initiated":
 						let pc = new PeerConnection(this.mainUI, altname, offerType);
 						this.peerConnections[uniquePCName] = {
-							"pc": pc
+							pc: pc
 						};
 						this.mainUI.logger.appendLog("Peer connection initialized", "info");
 						break;
@@ -903,7 +907,8 @@
 				this.mainUI.logger.appendLog("Sending offer", "info");
 				this.peerConnections[uniquePCName].ldpOfferSetPromise.then(() => {
 					this.send(JSON.stringify({
-						pc_uuid: uniquePCName,
+						offer_pc_uuid: uniquePCName,
+						answer_pc_uuid: null,
 						directive: signal_directive[1],
 						to_altname: toAltname,
 						sdp: this.peerConnections[uniquePCName].localDescription
@@ -920,7 +925,8 @@
 				if (offerAccepted) {
 					this.peerConnections[uniquePCName].ldpAnswerSetPromise.then(()=>{
 						this.send(JSON.stringify({
-							pc_uuid: uniquePCName,
+							answer_pc_uuid: uniquePCName,
+							offer_pc_uuid: this.peerConnections[uniquePCName]["answer_pc_uuid"]
 							directive: signal_directive[2],
 							to_altname: toAltname,
 							sdp: this.peerConnections[uniquePCName].localDescription,
