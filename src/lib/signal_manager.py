@@ -1,3 +1,4 @@
+import uuid
 import datetime
 
 class SignalManager:
@@ -6,18 +7,20 @@ class SignalManager:
     """
 	{
 		<ws>: {
-			"access": "public/private",
-            "pc_uuid": "<>",
-			"candidate": <candidate>,
-			"altname": "",
-            "client_type": "end/service",
-            "register_time": "",
-            "requested_altnames": []
+            "<pc_uuid>": {
+                "access": "public/private",
+                "pc_uuid": "<>",
+                "candidate": <candidate>,
+                "altname": "",
+                "client_type": "end/service",
+                "register_time": ""
+            }
 		}
 	}
 	"""
     
     # below is to main uniqueness of pc_uuid across all the websocket
+    # It will be static hence will not shared with instance.
     allocate_pc_uuid = {}
     
 	chat_rooms = {}
@@ -44,7 +47,7 @@ class SignalManager:
     all_altnames = {}
     """
     {
-        "<altname_1>": {"networks": [<altname>...]},
+        "<altname_1>": {"networks": [<altname>...], "access": "public/private"},
         "<altname_3>": ...
     }
     """
@@ -54,35 +57,51 @@ class SignalManager:
         pass
         # load email_altname from database
         
+    def initPeerConnectionUUID(self, data):
+        data["pc_uuid"] = str(uuid.uuid4())
+        SignalManager.allocate_pc_uuid[data["pc_uuid"]] = {
+            "ws": data["websocket"], "altname": data["altname"]}
+        del data["directive"]
+        del data["websocket"]
+        data["signal_response"] = "pc_initiated_uuid"
+        return data
+        
 
 	def register_websocket_candidate(self, data):
         try:
-            candidate_socket_map[data["websocket"]] = {
-                "candidate": data["candidate"],
-                "altname": data["altname"],
-                "client_type": data["client_type"],
-                "register_time": datetime.datetime.now(),
-                "access": data["access"] if data.get("access") is not None else "private",
-                "requested_altnames": set()
-            }
-            del data["directive"]
-            del data["websocket"]
-            data["signal_response"] = "registered_candidate"
+            if candidate_socket_map.get(data["websocket"]) is None:
+            
+                candidate_socket_map[data["websocket"]] = {
+                    data["pc_uuid"]: {
+                        "candidate": data["candidate"],
+                        "altname": SignalManager.allocate_pc_uuid[pc_uuid]["altname"],
+                        "client_type": data["client_type"],
+                        "register_time": datetime.datetime.now()
+                    }
+                }
+            else:
+                candidate_socket_map[data["websocket"]][data["pc_uuid"]] = {
+                    "candidate": data["candidate"],
+                    "altname": SignalManager.allocate_pc_uuid[pc_uuid]["altname"],
+                    "client_type": data["client_type"],
+                    "register_time": datetime.datetime.now()
+                }
+            
             data["status"] = "ok"
         except:
-            del data["directive"]
-            del data["websocket"]
-            data["signal_response"] = "registered_candidate"
             data["status"] = "nok"
+        del data["directive"]
+        del data["websocket"]
+        data["signal_response"] = "registered_candidate"
         return data
         
         
     def get_public_altname(self, data):
         altnames = []
         try:
-            for ws in candidate_socket_map.key():
-                if candidate_socket_map[ws]["access"] == data["public"]:
-                    altnames.append(candidate_socket_map[ws]["altname"])
+            for altname in all_altnames:
+                if altname["access"] == "public":
+                    altnames.append(altname)
         except Exception as e:
             print("Exception occured in fetching public altnames: {}".format(e))
         del data["directive"]
@@ -94,7 +113,7 @@ class SignalManager:
     def get_my_altname_networks(self, data):
         altnames = []
         try:
-            altnames = all_altnames[data[my_altname]]
+            altnames = all_altnames[data[my_altname]]["networks"]
         except Exception as e:
             print("Exception occured in fetching networks altnames in my altname: {}".format(e))
         del data["directive"]
@@ -159,6 +178,7 @@ class SignalManager:
         data["status"] = status
         return data
         
+    # Deprecated
     def get_current_websocket_requested_altnames(self, data):
         requested_altnames = []
         try:
@@ -174,13 +194,12 @@ class SignalManager:
     def update_my_altname_access(self, data):
         status = "nok"
         try:
-            for ws in candidate_socket_map.key():
-                if candidate_socket_map[ws]["altname"] == data["altname"]:
-                    if data["access"] in ["public", "private"]:
-                        candidate_socket_map[ws]["access"] = data["access"]
-                        status = "ok"
-                    else:
-                        raise RuntimeError("access is unknown, {}".format(data["access"]))
+            altname = candidate_socket_map[data["websocket"]][data["pc_uuid"]]["altname"]
+            if data["access"] in ["public", "private"]:
+                all_altnames[altname]["access"] = data["access"]
+                status = "ok"
+            else:
+                raise RuntimeError("access is unknown, {}".format(data["access"]))
         except Exception as e:
             status = "nok"
             print("Exception occured in requested_altnames: {}".format(e))
@@ -210,32 +229,32 @@ class SignalManager:
         """
         
         signal_processor = {
+            "pc_init_uuid": {
+                "call": initPeerConnectionUUID
+            },
             "register_candidates": {
-                "call":  register_websocket_candidate,
+                "call":  register_websocket_candidate
             },
             "request_candidate": {
-                "call": get_candidate_by_altname,
+                "call": get_candidate_by_altname
             },
             "forward_offer": {
-                "call": forward_signal_to,
+                "call": forward_signal_to
             },
             "forward_answer": {
-                "call": forward_signal_to,
-            },
-            "my_websocket_requested_altnames": {
-                "call": get_current_websocket_requested_altnames,
+                "call": forward_signal_to
             },
             "forward_network_request": {
-                "call": forward_signal_to,
+                "call": forward_signal_to
             },
             "forward_network_request_response": {
-                "call": forward_signal_to,
+                "call": forward_signal_to
             },
             "public_altname": {
-                "call": get_public_altname,
+                "call": get_public_altname
             },
             "update_my_altname_access": {
-                "call": update_my_altname_access,
+                "call": update_my_altname_access
             },
             "get_my_networks": {
                 "call": get_my_altname_networks

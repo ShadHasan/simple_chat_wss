@@ -727,10 +727,13 @@
 			}
 			
 		}
+		
+		
 	 
 		class SignalManager {
-			#signal_directive = ['register_candidates', 'forward_offer', 'forward_answer', 
-				'my_websocket_requested_altnames', 'forward_network_request', 
+		
+			#signal_directive = ['register_candidates', 'forward_offer', 'forward_answer',
+				'forward_network_request', 
 				'forward_network_request_response', 'public_altname', 'request_candidate', 
 				'update_my_altname_access', 'pc_init_uuid'];
 				
@@ -780,8 +783,6 @@
 						case "altname_candidates":
 							loadPublicAltname(response.candidates);
 							break;
-						case "my_candidate_shared_to_altnames":
-							break;
 						case "access_updated":
 							this.mainUI.logger.appendLog("Access updated", "info");
 							loadAccessUpdate();
@@ -826,17 +827,13 @@
 			 
 			}
 			
-			getAllPeerConnections() {
-				return this.peerConnections;
-			}
-			
 			createNewPeerConnection(phase, uniquePCName, altname, offerType) {
 				switch(phase) {
 				    // case init will triggered manually with uniquePCName null
 					this.mainUI.logger.appendLog("Initializing peer connection", "info");
 					case "init":
 						this.send(JSON.stringify({
-							directive: signal_directive[9],
+							directive: signal_directive[8],
 							altname: altname,
 							offerType: offerType
 						}));
@@ -891,9 +888,7 @@
 					this.send(JSON.stringify({
 						pc_uuid: uniquePCName,
 						directive: signal_directive[0],
-						altname: this.peerConnections[uniquePCName].altname,
-						client_type: "end",
-						access: access,
+						client_type: "end"
 						candidate: this.peerConnections[uniquePCName].candidate
 					}));
 					this.mainUI.logger.appendLog("Send candidate registeration", "info");
@@ -910,7 +905,6 @@
 					this.send(JSON.stringify({
 						pc_uuid: uniquePCName,
 						directive: signal_directive[1],
-						from_altname: this.peerConnections[uniquePCName].altname,
 						to_altname: toAltname,
 						sdp: this.peerConnections[uniquePCName].localDescription
 					}));
@@ -928,7 +922,6 @@
 						this.send(JSON.stringify({
 							pc_uuid: uniquePCName,
 							directive: signal_directive[2],
-							from_altname: this.peerConnections[uniquePCName].altname,
 							to_altname: toAltname,
 							sdp: this.peerConnections[uniquePCName].localDescription,
 							offer_accepted: offerAccepted
@@ -939,7 +932,6 @@
 					this.send(JSON.stringify({
 						pc_uuid: uniquePCName,
 						directive: signal_directive[2],
-						from_altname: this.peerConnections[uniquePCName].altname,
 						to_altname: toAltname,
 						sdp: null,
 						offer_accepted: offerAccepted
@@ -949,21 +941,23 @@
 			}
 			
 			// This will trigger manually. Hence it is not part of automation.
-			requestNetwork(fromAltname, toAltname) {
+			requestNetwork(uniquePCName, toAltname) {
 				this.mainUI.logger.appendLog("Sending network request", "info");
 				this.send(JSON.stringify({
-					directive: signal_directive[4],
+					pc_uuid: uniquePCName,
+					directive: signal_directive[3],
 					from_altname: fromAltname,
 					to_altname: toAltname
 				}));
 			}
 			
 			// This will trigger manually. Hence it is not part of automation.
-			sendNetworkResponse(fromAltname, toAltname, networkRequest) {
+			sendNetworkResponse(uniquePCName, toAltname, networkRequest) {
 				this.mainUI.logger.appendLog("Sending network request response", "info");
 				if (this.#possible_network_request.includes(networkRequest)) {
 					this.send(JSON.stringify({
-						directive: signal_directive[5],
+						pc_uuid: uniquePCName,
+						directive: signal_directive[4],
 						from_altname: fromAltname,
 						to_altname: toAltname,
 						network_request: networkRequest
@@ -975,11 +969,10 @@
 			
 			
 			// This will trigger manually. Hence it is not part of automation.
-			updateMyAltnameAccess(myAltname, access) {
+			updateMyAltnameAccess(uniquePCName, access) {
 				this.mainUI.logger.appendLog("Sending access update", "info");
 				this.send(JSON.stringify({
-					directive: signal_directive[8],
-					altname: myAltname,
+					directive: signal_directive[7],
 					access: access
 				}));
 			}
@@ -988,7 +981,7 @@
 			getPublicAltname() {
 				this.mainUI.logger.appendLog("Fetching all public altname", "info");
 				this.send(JSON.stringify({
-					directive: signal_directive[6]
+					directive: signal_directive[5]
 				}));
 			}
 			
