@@ -675,6 +675,7 @@
 			
 			}
 			
+			addPeerCandidate
 			
 			send(message) {
 				if (this.current_state == "channel_established") {
@@ -731,7 +732,7 @@
 			#signal_directive = ['register_candidates', 'forward_offer', 'forward_answer', 
 				'my_websocket_requested_altnames', 'forward_network_request', 
 				'forward_network_request_response', 'public_altname', 'request_candidate', 
-				'update_my_altname_access'];
+				'update_my_altname_access', 'pc_init_uuid'];
 				
 			#possible_network_request = ["accepted", "rejected"];
 		
@@ -812,6 +813,9 @@
 						case "networks_altnames":
 							this.loadMyAltnameNetworks(response.networks_altnames);
 							break;
+						case "pc_initiated_uuid":
+							createNewPeerConnection("initiated", data.pc_uuid, data.altname, data.offerType);
+							break;
 						default:
 							this.mainUI.logger.appendLog("Unknown signal response", "error");
 							break;
@@ -826,11 +830,27 @@
 				return this.peerConnections;
 			}
 			
-			createNewPeerConnection(uniquePCName, altname, offerType) {
-				let pc = new PeerConnection(this.mainUI, altname, offerType);
-				this.peerConnections[uniquePCName] = {
-					"pc": pc
-				};
+			createNewPeerConnection(phase, uniquePCName, altname, offerType) {
+				switch(phase) {
+				    // case init will triggered manually with uniquePCName null
+					this.mainUI.logger.appendLog("Initializing peer connection", "info");
+					case "init":
+						this.send(JSON.stringify({
+							directive: signal_directive[9],
+							altname: altname,
+							offerType: offerType
+						}));
+						break;
+					// case initiated will be automatically after signal response.
+					case "initiated":
+						let pc = new PeerConnection(this.mainUI, altname, offerType);
+						this.peerConnections[uniquePCName] = {
+							"pc": pc
+						};
+						this.mainUI.logger.appendLog("Peer connection initialized", "info");
+						break;
+				}
+				
 			}
 			
 			// Related to loading interface
@@ -966,7 +986,10 @@
 			
 			// This will trigger manually. Hence it is not part of automation.
 			getPublicAltname() {
-				
+				this.mainUI.logger.appendLog("Fetching all public altname", "info");
+				this.send(JSON.stringify({
+					directive: signal_directive[6]
+				}));
 			}
 			
 			// Generic websocket send.

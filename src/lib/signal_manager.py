@@ -7,6 +7,7 @@ class SignalManager:
 	{
 		<ws>: {
 			"access": "public/private",
+            "pc_uuid": "<>",
 			"candidate": <candidate>,
 			"altname": "",
             "client_type": "end/service",
@@ -15,6 +16,9 @@ class SignalManager:
 		}
 	}
 	"""
+    
+    # below is to main uniqueness of pc_uuid across all the websocket
+    allocate_pc_uuid = {}
     
 	chat_rooms = {}
     """
@@ -209,6 +213,9 @@ class SignalManager:
             "register_candidates": {
                 "call":  register_websocket_candidate,
             },
+            "request_candidate": {
+                "call": get_candidate_by_altname,
+            },
             "forward_offer": {
                 "call": forward_signal_to,
             },
@@ -226,9 +233,6 @@ class SignalManager:
             },
             "public_altname": {
                 "call": get_public_altname,
-            },
-            "request_candidate": {
-                "call": get_candidate_by_altname,
             },
             "update_my_altname_access": {
                 "call": update_my_altname_access,
