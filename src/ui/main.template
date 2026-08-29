@@ -615,7 +615,7 @@
 				
 				
 				
-				this.ldpOfferSet = new Promise((resolve) => {
+				this.ldpOfferSetPromise = new Promise((resolve) => {
 					// Generate the local SDP description object with offer
 					// Save it locally (This starts internal ICE gathering)
 					offer = this.pc.createOffer();
@@ -623,7 +623,7 @@
 					resolve();
 				});
 				
-				this.ldpOfferSet.then(() => {
+				this.ldpOfferSetPromise.then(() => {
 					this.mainUI.logger.appendLog("LDP set with offer is ready", "info");
 				});
 				
@@ -653,14 +653,14 @@
 			
 			createAnwerPromise(remoteSessionDescriptionProtocol) {
 				this.mainUI.logger.appendLog("Creating promise for LDP set with answer", "info");
-				this.ldpAnswerSet = new Promise((resolve) => {
+				this.ldpAnswerSetPromise = new Promise((resolve) => {
 					// Generate the local SDP description object with answer
 					this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
 					answer = this.pc.createAnswer();
 					this.pc.setLocalDescription(answer);
 					resolve(True);
 				});
-				this.ldpAnswerSet.then(() => {
+				this.ldpAnswerSetPromise.then(() => {
 					this.mainUI.logger.appendLog("LDP set with answer is ready", "info");
 				});
 				this.mainUI.logger.appendLog("Promise for LDP set with answer created", "info");
@@ -668,7 +668,7 @@
 			
 			updateOfferLDP_RDP(remoteSessionDescriptionProtocol) {
 				this.mainUI.logger.appendLog("Updating Offer LDP set with rdp", "info");
-				this.ldpOfferSet.then(() => {
+				this.ldpOfferSetPromise.then(() => {
 					await this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
 					this.mainUI.logger.appendLog("Updated Offer LDP set with rdp", "info");
 				});
@@ -773,6 +773,8 @@
 							this.peerConnections[response.pc_uuid].createAnwerPromise(response.sdp);
 							break;
 						case "incoming_answer":
+							this.mainUI.logger.appendLog("Incoming answer", "info");
+							this.peerConnections[response.pc_uuid].updateOfferLDP_RDP(response.sdp);
 							break;
 						case "altname_candidates":
 							loadPublicAltname(response.candidates);
@@ -823,14 +825,6 @@
 				this.mainUI.load_public_altnames(altnames);
 			}
 			
-			loadAndHighlightIncomingOffer() {
-				
-			}
-			
-			loadChatWindowOnIncomingAnswer() {
-				
-			}
-			
 			// Signal function related
 			checkAndRegisterCandidate(uniquePCName, access=null) {
 				this.mainUI.logger.appendLog("Checking and registering candidate", "info");
@@ -854,29 +848,46 @@
 				
 			}
 			
-			sendOffer(uniquePCName, fromAltname, toAltname) {
+			// This will trigger manually. Hence it is not part of automation.
+			sendOffer(uniquePCName, toAltname) {
 				this.mainUI.logger.appendLog("Sending offer", "info");
-				this.send(JSON.stringify({
-					pc_uuid: uniquePCName,
-					sdp: this.peerConnections[uniquePCName].localDescription
-				}));
+				this.peerConnections[uniquePCName].ldpOfferSetPromise.then(() => {
+					this.send(JSON.stringify({
+						pc_uuid: uniquePCName,
+						from_altname: this.peerConnections[uniquePCName].altname,
+						to_altname: toAltname,
+						sdp: this.peerConnections[uniquePCName].localDescription
+					}));
+					this.mainUI.logger.appendLog("Offer sent", "info");
+				});
+				
 			}
 			
-			signalDeclineOffer(uniquePCName, fromAltname, toAltname) {
-				// this might offer due to issue of signal server.
-			}
-			
-			sendAnswer(uniquePCName, fromAltname, toAltname) {
+			// This will trigger manually. Hence it is not part of automation.
+			sendAnswer(uniquePCName, toAltname, offerAccepted) {
 				// Here answer can be done to reject offer for different reason.
-				this.mainUI.logger.appendLog("Sending offer", "info");
-				this.send(JSON.stringify({
-					pc_uuid: uniquePCName,
-					sdp: this.peerConnections[uniquePCName].localDescription
-				}));
-			}
-			
-			SignalDeclineAnswer(uniquePCName, fromAltname, toAltname) {
-				// this might offer due to issue of signal server.
+				this.mainUI.logger.appendLog(`Sending answer for offer with ${offerAccepted}`, "info");
+				if (offerAccepted) {
+					this.peerConnections[uniquePCName].ldpAnswerSetPromise.then(()=>{
+						this.send(JSON.stringify({
+							pc_uuid: uniquePCName,
+							from_altname: this.peerConnections[uniquePCName].altname,
+							to_altname: toAltname,
+							sdp: this.peerConnections[uniquePCName].localDescription,
+							offer_accepted: offerAccepted
+						}));
+						this.mainUI.logger.appendLog("Answer sent", "info");
+					});
+				} else {
+					this.send(JSON.stringify({
+						pc_uuid: uniquePCName,
+						from_altname: this.peerConnections[uniquePCName].altname,
+						to_altname: toAltname,
+						sdp: null,
+						offer_accepted: offerAccepted
+					}));
+					this.mainUI.logger.appendLog("Answer sent", "info");
+				}
 			}
 			
 			
@@ -884,7 +895,7 @@
 				this.mainUI.logger.appendLog("Sending network request", "info");
 				this.send(JSON.stringify({
 					directive: signal_directive[4],
-					from_altname: fromAltname
+					from_altname: fromAltname,
 					to_altname: toAltname
 				}));
 			}
@@ -894,7 +905,7 @@
 				if (this.#possible_network_request.includes(networkRequest)) {
 					this.send(JSON.stringify({
 						directive: signal_directive[5],
-						from_altname: fromAltname
+						from_altname: fromAltname,
 						to_altname: toAltname,
 						"network_request": networkRequest
 					}));
