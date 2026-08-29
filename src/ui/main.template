@@ -784,12 +784,24 @@
 						case "access_updated":
 							break
 						case "fowarded_network_request":
+							if (response.status == "ok") {
+								this.mainUI.logger.appendLog("Ack forwarded network request", "info");
+							} else {
+								this.mainUI.logger.appendLog("Ack forwarded network request failed", "error");
+							}
 							break;
 						case "forward_network_request_response":
+							if (response.status == "ok") {
+								this.mainUI.logger.appendLog("Ack forwarded network request response", "info");
+							} else {
+								this.mainUI.logger.appendLog("Ack forwarded network request response failed", "error");
+							}
 							break;
 						case "incoming_network_request":
+							loadNetworkRequest(data);
 							break;
 						case "incoming_network_request_response":
+							updateMyNetwork();
 							break;
 						case "public_altnames":
 							this.mainUI.logger.appendLog("Signal respon with public altnames", "info");
@@ -824,6 +836,16 @@
 			loadPublicAltname(altnames) {
 				this.mainUI.load_public_altnames(altnames);
 			}
+			
+			loadIncomingOffer() {
+			}
+			
+			loadChatWindowLineEntry() {
+			}
+			
+			loadNetworkRequest() {
+			}
+			
 			
 			// Signal function related
 			checkAndRegisterCandidate(uniquePCName, access=null) {
@@ -890,7 +912,7 @@
 				}
 			}
 			
-			
+			// This will trigger manually. Hence it is not part of automation.
 			requestNetwork(fromAltname, toAltname) {
 				this.mainUI.logger.appendLog("Sending network request", "info");
 				this.send(JSON.stringify({
@@ -900,6 +922,7 @@
 				}));
 			}
 			
+			// This will trigger manually. Hence it is not part of automation.
 			sendNetworkResponse(fromAltname, toAltname, networkRequest) {
 				this.mainUI.logger.appendLog("Sending network request response", "info");
 				if (this.#possible_network_request.includes(networkRequest)) {
@@ -912,6 +935,10 @@
 				} else {
 					this.mainUI.logger.appendLog("Network request can be either accepted and rejected", "error");
 				}
+			}
+			
+			// This will trigger manually. Hence it is not part of automation.
+			updateMyNetwork() {
 			}
 			
 			// Generic websocket send.

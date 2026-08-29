@@ -41,6 +41,9 @@ class SignalManager:
     def __init__(self):
         pass
         # load email_altname from database
+        
+    def update_my_network(self, data):
+        
 
 	def register_websocket_candidate(self, data):
         try:
@@ -192,18 +195,6 @@ class SignalManager:
                 "call": forward_signal_to,
             },
             "forward_network_request_response": {
-                "call": forward_signal_to,
-            },
-            "incoming_offer": {
-                "call": forward_signal_to,
-            },
-            "incoming_answer": {
-                "call": forward_signal_to,
-            },
-            "incoming_network_request": {
-                "call": forward_signal_to,
-            },
-            "incoming_network_request_response": {
                 "call": forward_signal_to,
             },
             "public_altname": {
