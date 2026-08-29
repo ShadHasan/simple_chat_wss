@@ -782,6 +782,8 @@
 						case "my_candidate_shared_to_altnames":
 							break;
 						case "access_updated":
+							this.mainUI.logger.appendLog("Access updated", "info");
+							loadAccessUpdate();
 							break
 						case "fowarded_network_request":
 							if (response.status == "ok") {
@@ -806,6 +808,9 @@
 						case "public_altnames":
 							this.mainUI.logger.appendLog("Signal respon with public altnames", "info");
 							this.loadPublicAltname(response.public_altnames);
+							break;
+						case "networks_altnames":
+							this.loadMyAltnameNetworks(response.networks_altnames);
 							break;
 						default:
 							this.mainUI.logger.appendLog("Unknown signal response", "error");
@@ -844,6 +849,14 @@
 			}
 			
 			loadNetworkRequest() {
+				
+			}
+			
+			loadMyAltnameNetworks() {
+			}
+			
+			loadAccessUpdate() {
+			
 			}
 			
 			
@@ -876,6 +889,7 @@
 				this.peerConnections[uniquePCName].ldpOfferSetPromise.then(() => {
 					this.send(JSON.stringify({
 						pc_uuid: uniquePCName,
+						directive: signal_directive[1],
 						from_altname: this.peerConnections[uniquePCName].altname,
 						to_altname: toAltname,
 						sdp: this.peerConnections[uniquePCName].localDescription
@@ -893,6 +907,7 @@
 					this.peerConnections[uniquePCName].ldpAnswerSetPromise.then(()=>{
 						this.send(JSON.stringify({
 							pc_uuid: uniquePCName,
+							directive: signal_directive[2],
 							from_altname: this.peerConnections[uniquePCName].altname,
 							to_altname: toAltname,
 							sdp: this.peerConnections[uniquePCName].localDescription,
@@ -903,6 +918,7 @@
 				} else {
 					this.send(JSON.stringify({
 						pc_uuid: uniquePCName,
+						directive: signal_directive[2],
 						from_altname: this.peerConnections[uniquePCName].altname,
 						to_altname: toAltname,
 						sdp: null,
@@ -930,21 +946,34 @@
 						directive: signal_directive[5],
 						from_altname: fromAltname,
 						to_altname: toAltname,
-						"network_request": networkRequest
+						network_request: networkRequest
 					}));
 				} else {
 					this.mainUI.logger.appendLog("Network request can be either accepted and rejected", "error");
 				}
 			}
 			
+			
 			// This will trigger manually. Hence it is not part of automation.
-			updateMyNetwork() {
+			updateMyAltnameAccess(myAltname, access) {
+				this.mainUI.logger.appendLog("Sending access update", "info");
+				this.send(JSON.stringify({
+					directive: signal_directive[8],
+					altname: myAltname,
+					access: access
+				}));
+			}
+			
+			// This will trigger manually. Hence it is not part of automation.
+			getPublicAltname() {
+				
 			}
 			
 			// Generic websocket send.
 			send(data) {
 				signalingSocket.send(data);
 			}
+			
 		
 		}
 	

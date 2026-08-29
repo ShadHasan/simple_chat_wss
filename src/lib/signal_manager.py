@@ -29,11 +29,19 @@ class SignalManager:
     
     email_to_altname = {}
     """
+    Note: altname is unique assigned, cannot be allocated same altname to multiple email.
+    But an email can have multiple altnames.
     {
-        "<email>": [
-            {"<altname_1>": {"network": [<altname>...]},
-            {"<altname_3>": ...}
-        ]
+        "<email>": ["<altname_1>":,"<altname_3>", ...]
+        "<email2>": ["<altname_2>":,"<altname_4>", ...]
+    }
+    """
+    
+    all_altnames = {}
+    """
+    {
+        "<altname_1>": {"networks": [<altname>...]},
+        "<altname_3>": ...
     }
     """
 	
@@ -41,8 +49,6 @@ class SignalManager:
     def __init__(self):
         pass
         # load email_altname from database
-        
-    def update_my_network(self, data):
         
 
 	def register_websocket_candidate(self, data):
@@ -81,6 +87,18 @@ class SignalManager:
         data["public_altnames"] = altnames
         return data
         
+    def get_my_altname_networks(self, data):
+        altnames = []
+        try:
+            altnames = all_altnames[data[my_altname]]
+        except Exception as e:
+            print("Exception occured in fetching networks altnames in my altname: {}".format(e))
+        del data["directive"]
+        del data["websocket"]
+        data["signal_response"] = "networks_altnames"
+        data["networks_altnames"] = altnames
+        return data
+        
     def get_candidate_by_altname(self, data):
         candidates = []
         try:
@@ -116,6 +134,11 @@ class SignalManager:
             
             elif data["directive"] == "forward_network_request_response":
                 data["directive"] = "incoming_network_request_response"
+                if (data["network_request"] == "accepted"):
+                    if from_altname not in all_altnames[to_altname]["networks"]:
+                        all_altnames[to_altname]["networks"].appends(from_altname)
+                    if to_altname not in all_altnames[from_altname]["networks"]:
+                        all_altnames[from_altname]["networks"].appends(to_altname)
                 signal_response = "fowarded_network_request_response"
             
         
@@ -145,13 +168,17 @@ class SignalManager:
         return data
         
     def update_my_altname_access(self, data):
-        status = "ok"
+        status = "nok"
         try:
             for ws in candidate_socket_map.key():
                 if candidate_socket_map[ws]["altname"] == data["altname"]:
-                    candidate_socket_map[ws]["access"] = data["access"]
-            status = "ok"
+                    if data["access"] in ["public", "private"]:
+                        candidate_socket_map[ws]["access"] = data["access"]
+                        status = "ok"
+                    else:
+                        raise RuntimeError("access is unknown, {}".format(data["access"]))
         except Exception as e:
+            status = "nok"
             print("Exception occured in requested_altnames: {}".format(e))
         del data["directive"]
         del data["websocket"]
@@ -204,7 +231,10 @@ class SignalManager:
                 "call": get_candidate_by_altname,
             },
             "update_my_altname_access": {
-                "callback": update_my_altname_access,
+                "call": update_my_altname_access,
+            },
+            "get_my_networks": {
+                "call": get_my_altname_networks
             }
         }
         data["websocket"] = websocket
