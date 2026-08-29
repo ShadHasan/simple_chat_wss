@@ -776,13 +776,19 @@
 							this.mainUI.logger.appendLog("Incoming offer", "info");
 							this.peerConnections[response.answer_pc_uuid]["offer_pc_uuid"] = response.offer_pc_uuid;
 							this.peerConnections[response.answer_pc_uuid]["remote_pc_uuid"] = response.offer_pc_uuid;
+							this.peerConnections[response.answer_pc_uuid]["party"] = "answering";
 							this.peerConnections[response.answer_pc_uuid].pc.createAnwerPromise(response.sdp);
 							break;
 						case "incoming_answer":
 							this.mainUI.logger.appendLog("Incoming answer", "info");
-							this.peerConnections[response.offer_pc_uuid]["answer_pc_uuid"] = response.answer_pc_uuid;
-							this.peerConnections[response.offer_pc_uuid]["remote_pc_uuid"] = response.answer_pc_uuid;
-							this.peerConnections[response.offer_pc_uuid].pc.updateOfferLDP_RDP(response.sdp);
+							if (this.peerConnections[response.offer_pc_uuid]["remote_pc_uuid"] == null) {
+								this.peerConnections[response.offer_pc_uuid]["answer_pc_uuid"] = response.answer_pc_uuid;
+								this.peerConnections[response.offer_pc_uuid]["remote_pc_uuid"] = response.answer_pc_uuid;
+								this.peerConnections[response.answer_pc_uuid]["party"] = "offering";
+								this.peerConnections[response.offer_pc_uuid].pc.updateOfferLDP_RDP(response.sdp);
+							} else {
+								this.mainUI.logger.appendLog("Ignoring others incoming answer", "warn");
+							}
 							break;
 						case "altname_candidates":
 							loadPublicAltname(response.candidates);
@@ -926,7 +932,7 @@
 					this.peerConnections[uniquePCName].ldpAnswerSetPromise.then(()=>{
 						this.send(JSON.stringify({
 							answer_pc_uuid: uniquePCName,
-							offer_pc_uuid: this.peerConnections[uniquePCName]["answer_pc_uuid"]
+							offer_pc_uuid: this.peerConnections[uniquePCName]["offer_pc_uuid"]
 							directive: signal_directive[2],
 							to_altname: toAltname,
 							sdp: this.peerConnections[uniquePCName].localDescription,
@@ -952,7 +958,6 @@
 				this.send(JSON.stringify({
 					pc_uuid: uniquePCName,
 					directive: signal_directive[3],
-					from_altname: fromAltname,
 					to_altname: toAltname
 				}));
 			}
@@ -964,7 +969,6 @@
 					this.send(JSON.stringify({
 						pc_uuid: uniquePCName,
 						directive: signal_directive[4],
-						from_altname: fromAltname,
 						to_altname: toAltname,
 						network_request: networkRequest
 					}));

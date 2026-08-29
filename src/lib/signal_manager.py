@@ -137,21 +137,35 @@ class SignalManager:
         
     async def forward_signal_to(self, data):
         try:
-            from_altname = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"]
-            to_altname = data["to_altname"]
-            
+            forwarding_wss = {}
             if data["directive"] = "forward_offer":
                 data["directive"] = "incoming_offer"
+                to_altname = data["to_altname"]
+                for pc_uuid in SignalManager.allocate_pc_uuid.keys():
+                    if SignalManager.allocate_pc_uuid[pc]["altname"] = to_altname:
+                        data["answer_pc_uuid"] = pc_uuid
+                        await SignalManager.allocate_pc_uuid[pc]["ws"].send_json(data)
                 signal_response = "fowarded_offer"
             elif data["directive"] == "forward_answer":
                 data["directive"] = "incoming_answer"
+                await SignalManager.allocate_pc_uuid[data["offer_pc_uuid"]]["ws"].send_json(data)
                 signal_response = "fowarded_answer"
             
             elif data["directive"] == "forward_network_request":
+                to_altname = data["to_altname"]
+                from_altname = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"]
+                data["from_altname"] = from_altname
+                del = data["to_altname"]
                 data["directive"] = "incoming_network_request"
+                
+                for pc_uuid in SignalManager.keys():
+                    if SignalManager[pc_uuid]["altname"] == to_altname:
+                        await SignalManager.allocate_pc_uuid[data[pc_uuid]]["ws"].send_json(data)
                 signal_response = "fowarded_network_request"
             
             elif data["directive"] == "forward_network_request_response":
+                to_altname = data["to_altname"]
+                from_altname = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"]
                 data["directive"] = "incoming_network_request_response"
                 if (data["network_request"] == "accepted"):
                     if from_altname not in all_altnames[to_altname]["networks"]:
@@ -159,12 +173,7 @@ class SignalManager:
                     if to_altname not in all_altnames[from_altname]["networks"]:
                         all_altnames[from_altname]["networks"].appends(to_altname)
                 signal_response = "fowarded_network_request_response"
-            
-        
-            for ws in candidate_socket_map.key():
-                for 
-                if candidate_socket_map[ws]["altname"] == to_altname:
-                    await ws.send_json(data)
+                
             status = "ok"
         except Exception as e:
             print("Exception occured in fetching candidate: {}".format(e))
