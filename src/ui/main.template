@@ -286,6 +286,13 @@
 		else it will use remotechannel.
 
 		*/
+		
+		// Define the sleep function
+		const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+		
+		// Usage:
+		// await sleep(2000);
+		
 		class MainUI {
 		
 			constructor() {
@@ -294,6 +301,7 @@
 				const sidePanel = document.getElementById('sidePanel');
 				const minimizeBtn = document.getElementById('minimizeBtn');
 				const restoreBtn = document.getElementById('restoreBtn');
+				this.logger = null;
 
 				minimizeBtn.addEventListener('click', () => {
 					sidePanel.classList.add('minimized');
@@ -305,27 +313,28 @@
 					restoreBtn.classList.remove('visible');
 				});
 				
-				new Promise((resolve) => {
-					let fail = true;
-					let logger = null;
-					while (fail && logger==null) {
-						try {
-							setTimeout(() => {
-							  logger = new Logger("logViewer", "levelFilter");
-							}, 1000);
-							fail = false;
-						}
-						catch {
-							fail = true;
-						}
-						if(!fail) {
-							break;
-						}
+				
+			}
+			
+			async asyncInit() {
+				console.log("Async initializing is going own");
+				
+				let logger = null;
+				
+				while (logger==null) {
+					try {
+					
+						// Note: await sleep hold this function for prvided interval time which is 1 sec ie 1000 ms
+						await sleep(1000);
+						logger = new Logger("logViewer", "levelFilter");
 					}
-					resolve(logger);
+					catch {
+						// do nothing
+					}
+				}
 				
-				}).then((logger) => {this.logger = logger;});
-				
+				this.logger = logger;
+				this.logger.appendLog("Logger is ready", "info");
 				
 			}
 			
@@ -1051,6 +1060,7 @@
 		}
 	
 	const mainUI = new MainUI();
+	mainUI.asyncInit();
 	
 	/*
 	// --- Demo Examples ---
