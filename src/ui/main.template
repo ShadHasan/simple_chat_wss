@@ -96,7 +96,6 @@
         }
 
         .content {
-            padding: 15px;
             flex: 1;
             overflow-y: auto;
             color: #64748b;
@@ -182,10 +181,10 @@
         }
     </style>
 	<!-- Stylesheet Tag (Placed inside <head>) -->
-	<link rel="stylesheet" href="static/style/logger.css">
+	<link rel="stylesheet" href="/static/style/logger.css">
 
 	<!-- JavaScript Tag (Placed inside <head> or before </body>) -->
-	<script src="static/javascript/logger.js" defer></script>
+	<script src="/static/javascript/logger.js" defer></script>
 	
 
 </head>
@@ -206,7 +205,7 @@
 		</div>
 	</div>
     <div class="workspace">
-        <button id="restoreBtn" class="restore-trigger">◄ Restore Panel 2</button>
+        <button id="restoreBtn" class="restore-trigger"> Restore Debug</button>
 
         <!-- First Panel (Quadrant View) -->
         <div class="main-panel-1">
@@ -233,7 +232,7 @@
             <div class="panel">
                 <div class="title-bar">
                     <span>Debug Windows</span>
-                    <button id="minimizeBtn" class="toggle-btn" title="Minimize Panel">▬</button>
+                    <button id="minimizeBtn" class="toggle-btn" title="Minimize Panel"><b>_</b></button>
                 </div>
                 <div id="panel-2" class="content">
 					<div class="log-container">
@@ -264,53 +263,6 @@
 
 	<div class="footer">
 	</div>
-    <script>
-        // Core layout toggles
-        const sidePanel = document.getElementById('sidePanel');
-        const minimizeBtn = document.getElementById('minimizeBtn');
-        const restoreBtn = document.getElementById('restoreBtn');
-
-        minimizeBtn.addEventListener('click', () => {
-            sidePanel.classList.add('minimized');
-            restoreBtn.classList.add('visible');
-        });
-
-        restoreBtn.addEventListener('click', () => {
-            sidePanel.classList.remove('minimized');
-            restoreBtn.classList.remove('visible');
-        });
-
-        /**
-         * Appends an HTML string as a distinct single line entry inside a designated panel.
-         * @param {string} panelId - The HTML id of the panel target container (e.g., 'panel-1a')
-         * @param {string} htmlString - The string representing the HTML to insert
-         */
-        function appendPanelEntry(panelId, htmlString) {
-            const container = document.getElementById(panelId);
-            if (!container) {
-                console.error(`Panel container with id "${panelId}" not found.`);
-                return;
-            }
-
-            // Create a wrapper row to encapsulate the item cleanly as a single entry block
-            const wrapper = document.createElement('div');
-            wrapper.className = 'line-entry';
-            wrapper.innerHTML = htmlString;
-
-            container.appendChild(wrapper);
-            
-            // Auto scroll container down to show the latest entry
-            container.scrollTop = container.scrollHeight;
-        }
-
-        // --- Demo Examples ---
-        // You can run variations of these lines in your console to test it live:
-        appendPanelEntry('panel-1a', '<p>This is just a simple paragraph block entry.</p>');
-        appendPanelEntry('panel-1b', '<button onclick="alert(\'Clicked!\')">Action Button</button> <span>Click me</span>');
-        appendPanelEntry('panel-1c', '<label>Name:</label> <input type="text" placeholder="Enter text here...">');
-        appendPanelEntry('panel-1d', '<img src="https://www.advanien.com/common_screen_horizontal_fullhd/default_div_bg_Advenien__2.png" alt="icon"> <span>Status: Active</span>');
-        appendPanelEntry('panel-2', '<p>Sidebar log row item #1</p>');
-    </script>
  
 	<script>
 		/* There is two websocket communication. 
@@ -337,8 +289,67 @@
 		class MainUI {
 		
 			constructor() {
-				this.debug_panel = document.getElementBy("debug_panel");
-				this.logger = Logger("logViewer", "levelFilter");
+				
+				// Core layout toggles
+				const sidePanel = document.getElementById('sidePanel');
+				const minimizeBtn = document.getElementById('minimizeBtn');
+				const restoreBtn = document.getElementById('restoreBtn');
+
+				minimizeBtn.addEventListener('click', () => {
+					sidePanel.classList.add('minimized');
+					restoreBtn.classList.add('visible');
+				});
+
+				restoreBtn.addEventListener('click', () => {
+					sidePanel.classList.remove('minimized');
+					restoreBtn.classList.remove('visible');
+				});
+				
+				new Promise((resolve) => {
+					let fail = true;
+					let logger = null;
+					while (fail && logger==null) {
+						try {
+							setTimeout(() => {
+							  logger = new Logger("logViewer", "levelFilter");
+							}, 1000);
+							fail = false;
+						}
+						catch {
+							fail = true;
+						}
+						if(!fail) {
+							break;
+						}
+					}
+					resolve(logger);
+				
+				}).then((logger) => {this.logger = logger;});
+				
+				
+			}
+			
+			/**
+			 * Appends an HTML string as a distinct single line entry inside a designated panel.
+			 * @param {string} panelId - The HTML id of the panel target container (e.g., 'panel-1a')
+			 * @param {string} htmlString - The string representing the HTML to insert
+			 */
+			appendPanelEntry(panelId, htmlString) {
+				const container = document.getElementById(panelId);
+				if (!container) {
+					console.error(`Panel container with id "${panelId}" not found.`);
+					return;
+				}
+
+				// Create a wrapper row to encapsulate the item cleanly as a single entry block
+				const wrapper = document.createElement('div');
+				wrapper.className = 'line-entry';
+				wrapper.innerHTML = htmlString;
+
+				container.appendChild(wrapper);
+				
+				// Auto scroll container down to show the latest entry
+				container.scrollTop = container.scrollHeight;
 			}
 			
 			chatWindowFactory(chatRoomId, dataChannel) {
@@ -607,14 +618,14 @@
 				"answer_received": ["channel_established"],
 				"offer_received": ["peerAdded"],
 				"answer_forwarded": ["channel_established"],
-				"channel_established": ["bye"]
-				"bye": ["closed"]
+				"channel_established": ["bye"],
+				"bye": ["closed"],
 				"closed": null
 			};
 			
 			// expected_state = states[current_state];
 		
-			async constructor(mainUI, altname, offerType, label) {
+			constructor(mainUI, altname, offerType, label) {
 				this.current_state = "initial";
 				this.mainUI = mainUI;
 				this.altname = altname;
@@ -705,7 +716,7 @@
 			updateOfferLDP_RDP(remoteSessionDescriptionProtocol) {
 				this.mainUI.logger.appendLog("Updating Offer LDP set with rdp", "info");
 				this.ldpOfferSetPromise.then(() => {
-					await this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
+					this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
 					this.mainUI.logger.appendLog("Updated Offer LDP set with rdp", "info");
 				});
 			
@@ -876,8 +887,8 @@
 			createNewPeerConnection(phase, uniquePCName, altname, offerType) {
 				switch(phase) {
 				    // case init will triggered manually with uniquePCName null
-					this.mainUI.logger.appendLog("Initializing peer connection", "info");
 					case "init":
+						this.mainUI.logger.appendLog("Initializing peer connection", "info");
 						this.send(JSON.stringify({
 							directive: signal_directive[8],
 							altname: altname,
@@ -934,7 +945,7 @@
 					this.send(JSON.stringify({
 						pc_uuid: uniquePCName,
 						directive: signal_directive[0],
-						client_type: "end"
+						client_type: "end",
 						candidate: this.peerConnections[uniquePCName].candidate
 					}));
 					this.mainUI.logger.appendLog("Send candidate registeration", "info");
@@ -968,7 +979,7 @@
 					this.peerConnections[uniquePCName].ldpAnswerSetPromise.then(()=>{
 						this.send(JSON.stringify({
 							answer_pc_uuid: uniquePCName,
-							offer_pc_uuid: this.peerConnections[uniquePCName]["offer_pc_uuid"]
+							offer_pc_uuid: this.peerConnections[uniquePCName]["offer_pc_uuid"],
 							directive: signal_directive[2],
 							to_altname: toAltname,
 							sdp: this.peerConnections[uniquePCName].localDescription,
@@ -1039,6 +1050,17 @@
 		
 		}
 	
+	const mainUI = new MainUI();
+	
+	/*
+	// --- Demo Examples ---
+	// You can run variations of these lines in your console to test it live:
+	mainUI.appendPanelEntry('panel-1a', '<p>This is just a simple paragraph block entry.</p>');
+	mainUI.appendPanelEntry('panel-1b', '<button onclick="alert(\'Clicked!\')">Action Button</button> <span>Click me</span>');
+	mainUI.appendPanelEntry('panel-1c', '<label>Name:</label> <input type="text" placeholder="Enter text here...">');
+	mainUI.appendPanelEntry('panel-1d', '<img src="https://www.advanien.com/common_screen_horizontal_fullhd/default_div_bg_Advenien__2.png" alt="icon"> <span>Status: Active</span>');
+	mainUI.appendPanelEntry('panel-2', '<p>Sidebar log row item #1</p>');
+	*/
 	
 	</script>
 

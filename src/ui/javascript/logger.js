@@ -1,4 +1,7 @@
 class Logger {
+
+	#logViewer = null;
+	#levelFilter = null;
 	
 	constructor(viewerElementId, filterElementId) {
 		this.#logViewer = document.getElementById(viewerElementId);
@@ -81,6 +84,7 @@ class Logger {
 	}
 }
 
-logger = Logger()
+// old remanent code.
+// logger = new Logger()
 
 	

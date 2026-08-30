@@ -148,11 +148,12 @@ async def websocket_signal(websocket: WebSocket):
 
 # --- static file ---
 @app.get("/static")
-@app.get("/static/<path>")
-def static_files(path=None):
-    if path:
-        typ = path.split(os.sep)[0]
-        content = static_loader.get_template(typ, path)
+@app.get("/static/{tpath:path}")
+def static_files(tpath=None):
+    if tpath:
+        typ = tpath.split(os.sep)
+        print("==> ", typ)
+        content = static_loader.get_template(typ[0], typ[1])
     else:
         content = static_loader.list_dir()
     response = Response(content=content, status_code=200)

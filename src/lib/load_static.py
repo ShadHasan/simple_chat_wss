@@ -45,7 +45,7 @@ class TemplateMap:
         return self.__template_map[file_type][template_path]
         
     def list_dir(self):
-        return json.dumps(self.__template_map[all_path])
+        return json.dumps(self.__template_map)
 
 
 if __name__ == "__main__":
