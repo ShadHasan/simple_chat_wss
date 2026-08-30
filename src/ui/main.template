@@ -3,7 +3,7 @@
 <head>
 	<title> Main </title>
 	
-	    <style>
+	<style>
         * {
             box-sizing: border-box;
             margin: 0;
@@ -17,13 +17,35 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f0f2f5;
         }
-
+		
+		.header {
+			display: flex;
+            width: 100vw;
+            height: 6vh;
+            position: relative;
+			flex-direction: row;
+			justify-content: space-around;
+		}
+		
+		.header-button {
+			margin: 3px;
+			padding: 0px 3px;
+		}
+		
+		#icon-img {margin: 10px;}
+		
         .workspace {
             display: flex;
             width: 100vw;
-            height: 100vh;
+            height: 86vh;
             position: relative;
         }
+		.footer {
+			display: flex;
+            width: 100vw;
+            height: 8vh;
+            position: relative;
+		}
 
         .main-panel-1 {
             flex: 2.5;
@@ -159,60 +181,50 @@
             display: block;
         }
     </style>
-	
 	<!-- Stylesheet Tag (Placed inside <head>) -->
-	<link rel="stylesheet" href="style">
+	<link rel="stylesheet" href="static/style/logger.css">
 
 	<!-- JavaScript Tag (Placed inside <head> or before </body>) -->
-	<script src="script.js" defer></script>
+	<script src="static/javascript/logger.js" defer></script>
 	
 
 </head>
 <body>
-	<p> Welcome to wss </p>
-	<div class="log-container">
-        <!-- Toolbar Header -->
-        <div class="log-header">
-            <div class="log-title">System Live Logs</div>
-            <div class="controls">
-                <select id="levelFilter" class="filter-select" onchange="filterLogs()">
-                    <option value="all">All Levels</option>
-                    <option value="info">Info</option>
-                    <option value="warn">Warning</option>
-                    <option value="error">Error</option>
-                    <option value="debug">Debug</option>
-                </select>
-                <button class="btn" onclick="clearLogs()">Clear Console</button>
-                <button class="btn" onclick="generateMockLog()">Simulate Log</button>
-            </div>
-        </div>
-
-        <!-- Console Display Box -->
-        <div id="logViewer" class="log-viewer">
-            <!-- JavaScript will insert log rows dynamically here -->
-        </div>
-    </div>
-	
-	<div class="workspace">
+	<div class="header">
+		<div style="justify-content:flex-start;display:flex;height:100%;width:30%;">
+			<img id="icon-img" src="https://www.advanien.com/common_screen_horizontal_fullhd/default_div_bg_Advenien__2.png" alt="icon">
+		</div>
+		<div class="server-section" style="display: flex;">
+			<button class="header-button">Connect Signal</button>
+			<button class="header-button">Fetch Public</button>
+			<button class="header-button">Go Public</button>
+		</div>
+		<div style="justify-content:flex-end;display: flex;">
+			<select class="header-button" id="altname_list">
+				<option>Altname</option>
+			</select>
+		</div>
+	</div>
+    <div class="workspace">
         <button id="restoreBtn" class="restore-trigger">◄ Restore Panel 2</button>
 
         <!-- First Panel (Quadrant View) -->
         <div class="main-panel-1">
             <div class="panel">
-                <div class="title-bar">Panel 1A</div>
-                <div id="panel-1a" class="content"></div>
+                <div class="title-bar">Public Altnames</div>
+                <div id="public-altnames-panel" class="content"></div>
+            </div>
+			<div class="panel">
+                <div class="title-bar">Offer and Incoming Panel</div>
+                <div id="offer-incoming-panel" class="content"></div>
             </div>
             <div class="panel">
-                <div class="title-bar">Panel 1B</div>
-                <div id="panel-1b" class="content"></div>
+                <div class="title-bar">Altname in network</div>
+                <div id="network-altnames-panel" class="content"></div>
             </div>
             <div class="panel">
-                <div class="title-bar">Panel 1C</div>
-                <div id="panel-1c" class="content"></div>
-            </div>
-            <div class="panel">
-                <div class="title-bar">Panel 1D</div>
-                <div id="panel-1d" class="content"></div>
+                <div class="title-bar">Open Chat Windows</div>
+                <div id="chat-window-panel" class="content"></div>
             </div>
         </div>
 
@@ -220,14 +232,38 @@
         <div id="sidePanel" class="main-panel-2">
             <div class="panel">
                 <div class="title-bar">
-                    <span>Panel 2</span>
+                    <span>Debug Windows</span>
                     <button id="minimizeBtn" class="toggle-btn" title="Minimize Panel">▬</button>
                 </div>
-                <div id="panel-2" class="content"></div>
+                <div id="panel-2" class="content">
+					<div class="log-container">
+						<!-- Toolbar Header -->
+						<div class="log-header">
+							<div class="controls">
+								<select id="levelFilter" class="filter-select" onchange="filterLogs()">
+									<option value="all">All Levels</option>
+									<option value="info">Info</option>
+									<option value="warn">Warning</option>
+									<option value="error">Error</option>
+									<option value="debug">Debug</option>
+								</select>
+								<button class="btn" onclick="clearLogs()">Clear Console</button>
+								<button class="btn" onclick="generateMockLog()">Simulate Log</button>
+							</div>
+						</div>
+
+						<!-- Console Display Box -->
+						<div id="logViewer" class="log-viewer">
+							<!-- JavaScript will insert log rows dynamically here -->
+						</div>
+					</div>
+				</div>
             </div>
         </div>
     </div>
 
+	<div class="footer">
+	</div>
     <script>
         // Core layout toggles
         const sidePanel = document.getElementById('sidePanel');
@@ -272,7 +308,7 @@
         appendPanelEntry('panel-1a', '<p>This is just a simple paragraph block entry.</p>');
         appendPanelEntry('panel-1b', '<button onclick="alert(\'Clicked!\')">Action Button</button> <span>Click me</span>');
         appendPanelEntry('panel-1c', '<label>Name:</label> <input type="text" placeholder="Enter text here...">');
-        appendPanelEntry('panel-1d', '<img src="https://placeholder.com" alt="icon"> <span>Status: Active</span>');
+        appendPanelEntry('panel-1d', '<img src="https://www.advanien.com/common_screen_horizontal_fullhd/default_div_bg_Advenien__2.png" alt="icon"> <span>Status: Active</span>');
         appendPanelEntry('panel-2', '<p>Sidebar log row item #1</p>');
     </script>
  

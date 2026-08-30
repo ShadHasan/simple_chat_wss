@@ -1,6 +1,6 @@
 import os
 import datetime
-from fastapi import FastAPI, Body, Header, HTTPException, Cookie, Response, Depends, status
+from fastapi import FastAPI, Body, Header, HTTPException, Cookie, Response, Depends, status, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -11,6 +11,7 @@ import asyncio
 import uvicorn
 from lib.signal_manager import SignalManager
 from lib.load_static import TemplateMap
+from websockets.exceptions import ConnectionClosed
 
 
 app = FastAPI()
@@ -148,7 +149,7 @@ async def websocket_signal(websocket: WebSocket):
 # --- static file ---
 @app.get("/static")
 @app.get("/static/<path>")
-def static_files(path=none):
+def static_files(path=None):
     if path:
         typ = path.split(os.sep)[0]
         content = static_loader.get_template(typ, path)

@@ -3,10 +3,10 @@ import datetime
 
 class SignalManager:
 
-	candidate_socket_map = {}
+    candidate_socket_map = {}
     """
-	{
-		<ws>: {
+    {
+        <ws>: {
             "<pc_uuid>": {
                 "access": "public/private",
                 "pc_uuid": "<>",
@@ -15,15 +15,15 @@ class SignalManager:
                 "client_type": "end/service",
                 "register_time": ""
             }
-		}
-	}
-	"""
+        }
+    }
+    """
     
     # below is to main uniqueness of pc_uuid across all the websocket
     # It will be static hence will not shared with instance.
     allocate_pc_uuid = {}
     
-	chat_rooms = {}
+    chat_rooms = {}
     """
     {
         "room_uuid": {
@@ -67,7 +67,7 @@ class SignalManager:
         return data
         
 
-	def register_websocket_candidate(self, data):
+    def register_websocket_candidate(self, data):
         try:
             if candidate_socket_map.get(data["websocket"]) is None:
             
@@ -138,11 +138,11 @@ class SignalManager:
     async def forward_signal_to(self, data):
         try:
             forwarding_wss = {}
-            if data["directive"] = "forward_offer":
+            if data["directive"] == "forward_offer":
                 data["directive"] = "incoming_offer"
                 to_altname = data["to_altname"]
                 for pc_uuid in SignalManager.allocate_pc_uuid.keys():
-                    if SignalManager.allocate_pc_uuid[pc]["altname"] = to_altname:
+                    if SignalManager.allocate_pc_uuid[pc]["altname"] == to_altname:
                         data["answer_pc_uuid"] = pc_uuid
                         await SignalManager.allocate_pc_uuid[pc]["ws"].send_json(data)
                 signal_response = "fowarded_offer"
@@ -155,7 +155,7 @@ class SignalManager:
                 to_altname = data["to_altname"]
                 from_altname = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"]
                 data["from_altname"] = from_altname
-                del = data["to_altname"]
+                del data["to_altname"]
                 data["directive"] = "incoming_network_request"
                 
                 for pc_uuid in SignalManager.keys():
@@ -172,6 +172,9 @@ class SignalManager:
                         all_altnames[to_altname]["networks"].appends(from_altname)
                     if to_altname not in all_altnames[from_altname]["networks"]:
                         all_altnames[from_altname]["networks"].appends(to_altname)
+                for pc_uuid in SignalManager.keys():
+                    if SignalManager[pc_uuid]["altname"] == to_altname:
+                        await SignalManager.allocate_pc_uuid[data[pc_uuid]]["ws"].send_json(data)
                 signal_response = "fowarded_network_request_response"
                 
             status = "ok"

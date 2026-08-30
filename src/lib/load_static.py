@@ -31,10 +31,10 @@ class TemplateMap:
             style_files = [f for f in os.listdir(style_path) if os.path.isfile(os.path.join(style_path, f))]
             js_files = [f for f in os.listdir(javascript_path) if os.path.isfile(os.path.join(javascript_path, f))]
             for file in style_files:
-                with open(file, "r") as f:
+                with open(os.path.join(style_path, file), "r") as f:
                     cls.__template_map["style"][file] = f.read()
             for file in js_files:
-                with open(file, "r") as f:
+                with open(os.path.join(javascript_path, file), "r") as f:
                     cls.__template_map["javascript"][file] = f.read()
             cls.__template_map["all_path"] = style_files + js_files
             cls.__instance = TemplateMap()
