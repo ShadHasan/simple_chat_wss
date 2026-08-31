@@ -194,9 +194,9 @@
 			<img id="icon-img" src="https://www.advanien.com/common_screen_horizontal_fullhd/default_div_bg_Advenien__2.png" alt="icon">
 		</div>
 		<div class="server-section" style="display: flex;">
-			<button class="header-button">Connect Signal</button>
-			<button class="header-button">Fetch Public</button>
-			<button class="header-button">Go Public</button>
+			<button class="header-button" id="connect-signal-server-btn">Connect Signal</button>
+			<button class="header-button" id="load-public-altname-btn">Load Public</button>
+			<button class="header-button" id="go-public-button">Go Public</button>
 		</div>
 		<div style="justify-content:flex-end;display: flex;">
 			<select class="header-button" id="altname_list">
@@ -301,7 +301,7 @@
 				const sidePanel = document.getElementById('sidePanel');
 				const minimizeBtn = document.getElementById('minimizeBtn');
 				const restoreBtn = document.getElementById('restoreBtn');
-				this.logger = null;
+				this.xlogger = null;
 
 				minimizeBtn.addEventListener('click', () => {
 					sidePanel.classList.add('minimized');
@@ -333,9 +333,18 @@
 					}
 				}
 				
-				this.logger = logger;
-				this.logger.appendLog("Logger is ready", "info");
+				this.xlogger = logger;
 				
+				
+			}
+			
+			appendLog(msg, severity="info") {
+				if (this.xlogger != null)
+					this.xlogger.appendLog(msg, severity);
+				else {
+						console.log("logger is not loaded yet");
+						console.log("your log: ", msg, severity);
+					}
 			}
 			
 			/**
@@ -364,12 +373,12 @@
 			chatWindowFactory(chatRoomId, dataChannel) {
 				// 1. Create container window element
 				const chatWindow = document.createElement('div');
-				chatWindow.id = window_uniq;
+				chatWindow.id = chatRoomId;
 				
 				// 2. Inject advanced layout rules via CSS
 				const styles = document.createElement('style');
 				styles.textContent = `
-					#${window_uniq} {
+					#${chatRoomId} {
 						position: fixed;
 						bottom: 20px;
 						right: 20px;
@@ -680,7 +689,7 @@
 				});
 				
 				this.ldpOfferSetPromise.then(() => {
-					this.mainUI.logger.appendLog("LDP set with offer is ready", "info");
+					this.mainUI.appendLog("LDP set with offer is ready", "info");
 				});
 				
 				// --- 2. ICE GATHERING ---
@@ -696,11 +705,11 @@
 				  switch (pc.connectionState) {
 					case "disconnected":
 					case "failed":
-					  this.mainUI.logger.appendLog("Network dropped. Triggering automatic cleanup.", "error");
+					  this.mainUI.appendLog("Network dropped. Triggering automatic cleanup.", "error");
 					  this.close();
 					  break;
 					case "closed":
-					  this.mainUI.logger.appendLog("WebRTC Peer Connection fully destroyed.", "info");
+					  this.mainUI.appendLog("WebRTC Peer Connection fully destroyed.", "info");
 					  break;
 				  }
 				};
@@ -708,7 +717,7 @@
 			}
 			
 			createAnwerPromise(remoteSessionDescriptionProtocol) {
-				this.mainUI.logger.appendLog("Creating promise for LDP set with answer", "info");
+				this.mainUI.appendLog("Creating promise for LDP set with answer", "info");
 				this.ldpAnswerSetPromise = new Promise((resolve) => {
 					// Generate the local SDP description object with answer
 					this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
@@ -717,28 +726,29 @@
 					resolve(True);
 				});
 				this.ldpAnswerSetPromise.then(() => {
-					this.mainUI.logger.appendLog("LDP set with answer is ready", "info");
+					this.mainUI.appendLog("LDP set with answer is ready", "info");
 				});
-				this.mainUI.logger.appendLog("Promise for LDP set with answer created", "info");
+				this.mainUI.appendLog("Promise for LDP set with answer created", "info");
 			}
 			
 			updateOfferLDP_RDP(remoteSessionDescriptionProtocol) {
-				this.mainUI.logger.appendLog("Updating Offer LDP set with rdp", "info");
+				this.mainUI.appendLog("Updating Offer LDP set with rdp", "info");
 				this.ldpOfferSetPromise.then(() => {
 					this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
-					this.mainUI.logger.appendLog("Updated Offer LDP set with rdp", "info");
+					this.mainUI.appendLog("Updated Offer LDP set with rdp", "info");
 				});
 			
 			}
 			
-			addPeerCandidate
+			addPeerCandidate() {
+			}
 			
 			send(message) {
 				if (this.current_state == "channel_established") {
 					// use datachannel to send message
 					this.mainUI.chatWindowFactory(this.label, );
 				} else {
-					this.mainUI.logger.appendLog("Data channel is not ready", "error");
+					this.mainUI.appendLog("Data channel is not ready", "error");
 				}
 			}
 			
@@ -771,14 +781,14 @@
 			  
 			  // 4. Garbage collection cleanup
 			  this.pc = null;
-			  this.mainUI.logger.appendLog("WebRTC Peer Connection fully destroyed.", "info");
+			  this.mainUI.appendLog("WebRTC Peer Connection fully destroyed.", "info");
 			}
 			
 			changeState(newState) {
 				if (this.states[this.current_state].includes(newState)) {
 					this.current_state = newState;
 				} else {
-					this.mainUI.logger.appendLog(`Unexpected new state: ${newState} from state: ${this.current_state}`, "error");
+					this.mainUI.appendLog(`Unexpected new state: ${newState} from state: ${this.current_state}`, "error");
 				}
 			}
 			
@@ -798,8 +808,18 @@
 			constructor(mainUI) {
 				this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
 				this.mainUI = mainUI;
-				this.peerConnections = {}
-				this.loadGenericInterface();
+				this.peerConnections = {};
+				
+				this.signalUiHandles = {
+					btnHandleConnectSignalServer: {handle: null, id: "connect-signal-server-btn"},
+					btnHandleLoadPublicAltname: {handle: null, id: "load-public-altname-btn"},
+					btnHandleGoPublic: {handle: null, id: "load-public-altname-btn"},
+					panelOfferIncoming: {handle: null, id: "offer-incoming-panel"},
+					panelPublicAltnames: {handle: null, id: "public-altnames-panel"},
+					panelNetworkAltnames: {handle: null, id: "network-altnames-panel"},
+					panelChatWindow: {handle: null, id: "chat-window-panel"}
+				};
+				
 				this.signalingSocket.onmessage = (response) => {
 					
 					// below one line is rough, Todo remove
@@ -809,62 +829,62 @@
 						case "registered_candidate":
 							if (response.status == "ok") {
 								this.peerConnections[response.pc_uuid].pc.changeState("candidate_registered");
-								this.mainUI.logger.appendLog("candidate registered successfully", "info");
+								this.mainUI.appendLog("candidate registered successfully", "info");
 							} else {
-								this.mainUI.logger.appendLog("candidate registeration failed", "error");
+								this.mainUI.appendLog("candidate registeration failed", "error");
 							}
 							break;
 						case "forwarded_offer":
 							if (response.status == "ok") {
-								this.mainUI.logger.appendLog("Forwared offer successfully", "info");
+								this.mainUI.appendLog("Forwared offer successfully", "info");
 							} else {
-								this.mainUI.logger.appendLog("Offer forward fail", "error");
+								this.mainUI.appendLog("Offer forward fail", "error");
 							}
 							break;
 						case "fowarded_answer":
 							if (response.status == "ok") {
-								this.mainUI.logger.appendLog("Forwared answer successfully", "info");
+								this.mainUI.appendLog("Forwared answer successfully", "info");
 							} else {
-								this.mainUI.logger.appendLog("Answer forward fail", "error");
+								this.mainUI.appendLog("Answer forward fail", "error");
 							}
 							break;
 						case "incoming_offer":
-							this.mainUI.logger.appendLog("Incoming offer", "info");
+							this.mainUI.appendLog("Incoming offer", "info");
 							this.peerConnections[response.answer_pc_uuid]["offer_pc_uuid"] = response.offer_pc_uuid;
 							this.peerConnections[response.answer_pc_uuid]["remote_pc_uuid"] = response.offer_pc_uuid;
 							this.peerConnections[response.answer_pc_uuid]["party"] = "answering";
 							this.peerConnections[response.answer_pc_uuid].pc.createAnwerPromise(response.sdp);
 							break;
 						case "incoming_answer":
-							this.mainUI.logger.appendLog("Incoming answer", "info");
+							this.mainUI.appendLog("Incoming answer", "info");
 							if (this.peerConnections[response.offer_pc_uuid]["remote_pc_uuid"] == null) {
 								this.peerConnections[response.offer_pc_uuid]["answer_pc_uuid"] = response.answer_pc_uuid;
 								this.peerConnections[response.offer_pc_uuid]["remote_pc_uuid"] = response.answer_pc_uuid;
 								this.peerConnections[response.answer_pc_uuid]["party"] = "offering";
 								this.peerConnections[response.offer_pc_uuid].pc.updateOfferLDP_RDP(response.sdp);
 							} else {
-								this.mainUI.logger.appendLog("Ignoring others incoming answer", "warn");
+								this.mainUI.appendLog("Ignoring others incoming answer", "warn");
 							}
 							break;
 						case "altname_candidates":
 							loadPublicAltname(response.candidates);
 							break;
 						case "access_updated":
-							this.mainUI.logger.appendLog("Access updated", "info");
+							this.mainUI.appendLog("Access updated", "info");
 							loadAccessUpdate();
 							break
 						case "fowarded_network_request":
 							if (response.status == "ok") {
-								this.mainUI.logger.appendLog("Ack forwarded network request", "info");
+								this.mainUI.appendLog("Ack forwarded network request", "info");
 							} else {
-								this.mainUI.logger.appendLog("Ack forwarded network request failed", "error");
+								this.mainUI.appendLog("Ack forwarded network request failed", "error");
 							}
 							break;
 						case "forward_network_request_response":
 							if (response.status == "ok") {
-								this.mainUI.logger.appendLog("Ack forwarded network request response", "info");
+								this.mainUI.appendLog("Ack forwarded network request response", "info");
 							} else {
-								this.mainUI.logger.appendLog("Ack forwarded network request response failed", "error");
+								this.mainUI.appendLog("Ack forwarded network request response failed", "error");
 							}
 							break;
 						case "incoming_network_request":
@@ -874,7 +894,7 @@
 							updateMyNetwork();
 							break;
 						case "public_altnames":
-							this.mainUI.logger.appendLog("Signal respon with public altnames", "info");
+							this.mainUI.appendLog("Signal respon with public altnames", "info");
 							this.loadPublicAltname(response.public_altnames);
 							break;
 						case "networks_altnames":
@@ -884,20 +904,42 @@
 							createNewPeerConnection("initiated", data.pc_uuid, data.altname, data.offerType);
 							break;
 						default:
-							this.mainUI.logger.appendLog("Unknown signal response", "error");
+							this.mainUI.appendLog("Unknown signal response", "error");
 							break;
-						
 					}
 					
 				};
 			 
 			}
 			
+			async asyncInit() {
+				
+				for (let handle in this.signalUiHandles ) {
+					let xhandle = null;
+					while (xhandle == null) {
+						// Please within in promise while loop object variable cannot be updated. 
+						// check below code 
+						// handle.handle = document.getElementById(handle.id);
+						
+						xhandle = document.getElementById(handle.id);
+						if (xhandle == null) {
+							this.mainUI.appendLog(`Handle is not loaded for id: ${handle.id}`, "warn");
+							await sleep(500);
+						}
+						else {
+							this.mainUI.appendLog(`Handle is loaded for id: ${handle.id}`, "info");
+						}
+					}
+					handle.handle = xhandle;
+				}
+				
+			}
+			
 			createNewPeerConnection(phase, uniquePCName, altname, offerType) {
 				switch(phase) {
 				    // case init will triggered manually with uniquePCName null
 					case "init":
-						this.mainUI.logger.appendLog("Initializing peer connection", "info");
+						this.mainUI.appendLog("Initializing peer connection", "info");
 						this.send(JSON.stringify({
 							directive: signal_directive[8],
 							altname: altname,
@@ -910,19 +952,15 @@
 						this.peerConnections[uniquePCName] = {
 							pc: pc
 						};
-						this.mainUI.logger.appendLog("Peer connection initialized", "info");
+						this.mainUI.appendLog("Peer connection initialized", "info");
 						break;
 				}
 				
 			}
 			
-			// Related to loading interface
-			loadGenericInterface() {
-				this.mainUI.main();
-			}
 			
 			loadPublicAltname(altnames) {
-				this.mainUI.load_public_altnames(altnames);
+				
 			}
 			
 			loadIncomingOffer() {
@@ -945,7 +983,7 @@
 			
 			// Signal function related
 			checkAndRegisterCandidate(uniquePCName, access=null) {
-				this.mainUI.logger.appendLog("Checking and registering candidate", "info");
+				this.mainUI.appendLog("Checking and registering candidate", "info");
 				if(accept == null)
 					access = "private";
 				
@@ -957,16 +995,16 @@
 						client_type: "end",
 						candidate: this.peerConnections[uniquePCName].candidate
 					}));
-					this.mainUI.logger.appendLog("Send candidate registeration", "info");
+					this.mainUI.appendLog("Send candidate registeration", "info");
 				} else {
-					this.mainUI.logger.appendLog("Either candidate or websocket is not ready", "error");
+					this.mainUI.appendLog("Either candidate or websocket is not ready", "error");
 				}
 				
 			}
 			
 			// This will trigger manually. Hence it is not part of automation.
 			sendOffer(uniquePCName, toAltname) {
-				this.mainUI.logger.appendLog("Sending offer", "info");
+				this.mainUI.appendLog("Sending offer", "info");
 				this.peerConnections[uniquePCName].ldpOfferSetPromise.then(() => {
 					this.send(JSON.stringify({
 						offer_pc_uuid: uniquePCName,
@@ -975,7 +1013,7 @@
 						to_altname: toAltname,
 						sdp: this.peerConnections[uniquePCName].localDescription
 					}));
-					this.mainUI.logger.appendLog("Offer sent", "info");
+					this.mainUI.appendLog("Offer sent", "info");
 				});
 				
 			}
@@ -983,7 +1021,7 @@
 			// This will trigger manually. Hence it is not part of automation.
 			sendAnswer(uniquePCName, toAltname, offerAccepted) {
 				// Here answer can be done to reject offer for different reason.
-				this.mainUI.logger.appendLog(`Sending answer for offer with ${offerAccepted}`, "info");
+				this.mainUI.appendLog(`Sending answer for offer with ${offerAccepted}`, "info");
 				if (offerAccepted) {
 					this.peerConnections[uniquePCName].ldpAnswerSetPromise.then(()=>{
 						this.send(JSON.stringify({
@@ -994,7 +1032,7 @@
 							sdp: this.peerConnections[uniquePCName].localDescription,
 							offer_accepted: offerAccepted
 						}));
-						this.mainUI.logger.appendLog("Answer sent", "info");
+						this.mainUI.appendLog("Answer sent", "info");
 					});
 				} else {
 					this.send(JSON.stringify({
@@ -1004,13 +1042,13 @@
 						sdp: null,
 						offer_accepted: offerAccepted
 					}));
-					this.mainUI.logger.appendLog("Answer sent", "info");
+					this.mainUI.appendLog("Answer sent", "info");
 				}
 			}
 			
 			// This will trigger manually. Hence it is not part of automation.
 			requestNetwork(uniquePCName, toAltname) {
-				this.mainUI.logger.appendLog("Sending network request", "info");
+				this.mainUI.appendLog("Sending network request", "info");
 				this.send(JSON.stringify({
 					pc_uuid: uniquePCName,
 					directive: signal_directive[3],
@@ -1020,7 +1058,7 @@
 			
 			// This will trigger manually. Hence it is not part of automation.
 			sendNetworkResponse(uniquePCName, toAltname, networkRequest) {
-				this.mainUI.logger.appendLog("Sending network request response", "info");
+				this.mainUI.appendLog("Sending network request response", "info");
 				if (this.#possible_network_request.includes(networkRequest)) {
 					this.send(JSON.stringify({
 						pc_uuid: uniquePCName,
@@ -1029,14 +1067,14 @@
 						network_request: networkRequest
 					}));
 				} else {
-					this.mainUI.logger.appendLog("Network request can be either accepted and rejected", "error");
+					this.mainUI.appendLog("Network request can be either accepted and rejected", "error");
 				}
 			}
 			
 			
 			// This will trigger manually. Hence it is not part of automation.
 			updateMyAltnameAccess(uniquePCName, access) {
-				this.mainUI.logger.appendLog("Sending access update", "info");
+				this.mainUI.appendLog("Sending access update", "info");
 				this.send(JSON.stringify({
 					directive: signal_directive[7],
 					access: access
@@ -1045,7 +1083,7 @@
 			
 			// This will trigger manually. Hence it is not part of automation.
 			getPublicAltname() {
-				this.mainUI.logger.appendLog("Fetching all public altname", "info");
+				this.mainUI.appendLog("Fetching all public altname", "info");
 				this.send(JSON.stringify({
 					directive: signal_directive[5]
 				}));
@@ -1061,6 +1099,8 @@
 	
 	const mainUI = new MainUI();
 	mainUI.asyncInit();
+	const signalManager = new SignalManager(mainUI);
+	signalManager.asyncInit();
 	
 	/*
 	// --- Demo Examples ---
