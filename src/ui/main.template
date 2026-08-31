@@ -915,22 +915,17 @@
 			async asyncInit() {
 				
 				for (let handle in this.signalUiHandles ) {
-					let xhandle = null;
-					while (xhandle == null) {
-						// Please within in promise while loop object variable cannot be updated. 
-						// check below code 
-						// handle.handle = document.getElementById(handle.id);
+					while (this.signalUiHandles[handle].handle == null) {
 						
-						xhandle = document.getElementById(handle.id);
-						if (xhandle == null) {
-							this.mainUI.appendLog(`Handle is not loaded for id: ${handle.id}`, "warn");
+						this.signalUiHandles[handle].handle = document.getElementById(this.signalUiHandles[handle].id);
+						if (this.signalUiHandles[handle].handle == null) {
+							this.mainUI.appendLog(`Handle is not loaded for id: ${this.signalUiHandles[handle].id}`, "warn");
 							await sleep(500);
 						}
 						else {
-							this.mainUI.appendLog(`Handle is loaded for id: ${handle.id}`, "info");
+							this.mainUI.appendLog(`Handle is loaded for id: ${this.signalUiHandles[handle].id}`, "info");
 						}
 					}
-					handle.handle = xhandle;
 				}
 				
 			}
