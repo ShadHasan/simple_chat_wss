@@ -404,7 +404,6 @@
 				
 				this.xlogger = logger;
 				
-				
 			}
 			
 			appendLog(msg, severity="info") {
@@ -957,6 +956,7 @@
 				// Listener for If the connection is closed
                 this.signalingSocket.addEventListener('close', () => {
 					this.mainUI.appendLog("WebSocket connection closed", "info");
+					document.getElementById("connect-signal-server-btn").click();
                 });
 				
 				this.signalingSocket.onmessage = (event) => {
@@ -1104,7 +1104,7 @@
 				for(let i =0; i<altnames.length; i++) {
 					this.mainUI.appendPanelEntry(
 						this.signalUiHandles.panelPublicAltnames.id, 
-						`<div>${altnames[i]}</div>`
+						`<div style="display:flex;"><div>${altnames[i]}</div><button onClick="workflowConnect('${altnames[i]}')">connect</button></div>`
 					);
 				}
 			}
@@ -1243,11 +1243,26 @@
 		
 		}
 	
+	
+	// Upper level variable reference
+	
 	const mainUI = new MainUI();
+	let signalManager = null;
+	const myAltname = "altname_2";
+	
+	
+	// WORKFLOW
+	function workflowConnect(altname) {
+		mainUI.appendLog(altname, "info");
+		signalManager.createNewPeerConnection();
+	}
+	
+	
+	
+	// Start point of execution
 	
 	// Note: async return promise.
 	mainUI.asyncInit().then(()=>{
-		let signalManager = null;
 	
 		let cssc = document.getElementById("connect-signal-server-container");
 		mainUI.toggelSwitchFactory(
