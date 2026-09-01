@@ -751,14 +751,24 @@
 		
 		class PeerConnection {
 			states = {
-				"initial": ["closed", "candiate_gathered"],
+				"initial": ["closed", "candiate_gathered", "offer_received"],
 				"candiate_gathered": ["candidate_registered", "closed"],
 				"candidate_registered": ["offer_forwarded"],
-				"peerAdded": ["answer_forwarded"],
-				"offer_forwarded": ["answer_received"],
-				"answer_received": ["channel_established"],
-				"offer_received": ["peerAdded"],
-				"answer_forwarded": ["channel_established"],
+				"peer_added": ["answer_forwarded"],
+				"offer_forwarded": ["answer_received_decline", "answer_received_accepted"],
+				"answer_received_accepted": ["request_peer_candidate"],
+				"request_peer_candidate": ["peer_added"],
+				"answer_received_decline": ["closed"],
+				"peer_added": ["channel_established"],
+				
+				"offer_received":  ["candiate_gathered"],
+				"candiate_gathered": ["candidate_registered"],
+				"candidate_registered": ["answer_forward_decline", "answer_forward_accepted"],
+				"answer_forward_accepted": ["request_peer_candidate"],
+				"request_peer_candidate": ["peer_added"],
+				"answer_forward_decline": ["closed"],
+				"peer_added": ["channel_established"],
+				
 				"channel_established": ["bye"],
 				"bye": ["closed"],
 				"closed": null
@@ -1163,13 +1173,13 @@
 			// This will trigger manually. Hence it is not part of automation.
 			sendOffer(uniquePCName, toAltname) {
 				this.mainUI.appendLog("Sending offer", "info");
-				this.peerConnections[uniquePCName].ldpOfferSetPromise.then(() => {
+				this.peerConnections[uniquePCName].pc.ldpOfferSetPromise.then(() => {
 					this.send(JSON.stringify({
 						offer_pc_uuid: uniquePCName,
 						answer_pc_uuid: null,
 						directive: this.signal_directive[1],
 						to_altname: toAltname,
-						sdp: this.peerConnections[uniquePCName].localDescription
+						sdp: this.peerConnections[uniquePCName].pc.localDescription
 					}));
 					this.mainUI.appendLog("Offer sent", "info");
 				});
@@ -1181,13 +1191,13 @@
 				// Here answer can be done to reject offer for different reason.
 				this.mainUI.appendLog(`Sending answer for offer with ${offerAccepted}`, "info");
 				if (offerAccepted) {
-					this.peerConnections[uniquePCName].ldpAnswerSetPromise.then(()=>{
+					this.peerConnections[uniquePCName].pc.ldpAnswerSetPromise.then(()=>{
 						this.send(JSON.stringify({
 							answer_pc_uuid: uniquePCName,
 							offer_pc_uuid: this.peerConnections[uniquePCName]["offer_pc_uuid"],
 							directive: this.signal_directive[2],
 							to_altname: toAltname,
-							sdp: this.peerConnections[uniquePCName].localDescription,
+							sdp: this.peerConnections[uniquePCName].pc.localDescription,
 							offer_accepted: offerAccepted
 						}));
 						this.mainUI.appendLog("Answer sent", "info");
