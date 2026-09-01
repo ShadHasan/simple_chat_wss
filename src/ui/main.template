@@ -753,8 +753,8 @@
 			states = {
 				"initial": ["closed", "candiate_gathered", "offer_received"],
 				"candiate_gathered": ["candidate_registered", "closed"],
-				"candidate_registered": ["offer_forwarded"],
-				"peer_added": ["answer_forwarded"],
+				"candidate_registered": ["offer_forwarded", "answer_forward_decline", "answer_forward_accepted"],
+				
 				"offer_forwarded": ["answer_received_decline", "answer_received_accepted"],
 				"answer_received_accepted": ["request_peer_candidate"],
 				"request_peer_candidate": ["peer_added"],
@@ -763,7 +763,6 @@
 				
 				"offer_received":  ["candiate_gathered"],
 				"candiate_gathered": ["candidate_registered"],
-				"candidate_registered": ["answer_forward_decline", "answer_forward_accepted"],
 				"answer_forward_accepted": ["request_peer_candidate"],
 				"request_peer_candidate": ["peer_added"],
 				"answer_forward_decline": ["closed"],
@@ -797,12 +796,14 @@
 				
 				// --- 1. CHANNEL MANAGEMENT: Handle Local Data/Media ---
 				// Create a data channel (required to trigger ICE gathering if you don't use video/audio)
+				// If you are offering party this will be your channel
 				this.dataChannel = this.pc.createDataChannel("chat");
 				this.dataChannel.onmessage = (e) => {
 					console.log("Received peer message:", e.data);
 				}
 				
 				// Listen for incoming data channels from the other peer
+				// If you are answering this will be your channel
 				this.pc.ondatachannel = (event) => {
 					this.remoteChannel = event.channel;
 					this.remoteChannel.onmessage = (e) => {
@@ -830,7 +831,7 @@
 						if (event.candidate) {
 							this.mainUI.appendLog("Candidate gathered", "info");
 							this.candidate = event.candidate;
-							this.current_state = "candiate_gathered";
+							this.changeState("candiate_gathered");
 							resolve();
 						}
 					};
@@ -1007,21 +1008,12 @@
 							break;
 						case "incoming_offer":
 							this.mainUI.appendLog("Incoming offer", "info");
-							this.peerConnections[response.answer_pc_uuid]["offer_pc_uuid"] = response.offer_pc_uuid;
-							this.peerConnections[response.answer_pc_uuid]["remote_pc_uuid"] = response.offer_pc_uuid;
-							this.peerConnections[response.answer_pc_uuid]["party"] = "answering";
-							this.peerConnections[response.answer_pc_uuid].pc.createAnwerPromise(response.sdp);
+							offerIncomingWorkflow(response);
 							break;
 						case "incoming_answer":
 							this.mainUI.appendLog("Incoming answer", "info");
-							if (this.peerConnections[response.offer_pc_uuid]["remote_pc_uuid"] == null) {
-								this.peerConnections[response.offer_pc_uuid]["answer_pc_uuid"] = response.answer_pc_uuid;
-								this.peerConnections[response.offer_pc_uuid]["remote_pc_uuid"] = response.answer_pc_uuid;
-								this.peerConnections[response.answer_pc_uuid]["party"] = "offering";
-								this.peerConnections[response.offer_pc_uuid].pc.updateOfferLDP_RDP(response.sdp);
-							} else {
-								this.mainUI.appendLog("Ignoring others incoming answer", "warn");
-							}
+							this.peerConnections[response.pc_uuid]["party"] = "offering";
+							this.peerConnections[response.pc_uuid].pc.updateOfferLDP_RDP(response.sdp);
 							break;
 						case "altname_candidates":
 							loadPublicAltname(response.candidates);
@@ -1176,7 +1168,6 @@
 				this.peerConnections[uniquePCName].pc.ldpOfferSetPromise.then(() => {
 					this.send(JSON.stringify({
 						offer_pc_uuid: uniquePCName,
-						answer_pc_uuid: null,
 						directive: this.signal_directive[1],
 						to_altname: toAltname,
 						sdp: this.peerConnections[uniquePCName].pc.localDescription
@@ -1257,6 +1248,10 @@
 				}));
 			}
 			
+			requestPeerCandidateByPeerID(peer_id) {
+				
+			}
+			
 			// Generic websocket send.
 			send(data) {
 				this.signalingSocket.send(data);
@@ -1298,6 +1293,11 @@
 			signalManager.checkAndRegisterCandidate(uniquePCName);
 		});
 		
+	}
+	
+	function offerIncomingWorkflow(incomingRequest) {
+		this.peerConnections[incomingRequest.pc_uuid]["party"] = "answering";
+		this.peerConnections[incomingRequest.pc_uuid].pc.createAnwerPromise(response.sdp);
 	}
 	
 	

@@ -12,8 +12,7 @@ class SignalManager:
                 "pc_uuid": "<>",
                 "candidate": <candidate>,
                 "altname": "",
-                "client_type": "end/service",
-                "register_time": ""
+                
             }
         }
     }
@@ -22,6 +21,27 @@ class SignalManager:
     # below is to main uniqueness of pc_uuid across all the websocket
     # It will be "static" hence will not shared with instance.
     allocate_pc_uuid = {}
+    """
+    {
+        "<pc_uuid>": {
+            "type": "1-to-1",
+            "offer_party": {
+                "websocket": websocket
+                "altname": "<altname>",
+                "candidate": "",
+                "client_type": "end",  # It is always end type.
+                "register_time": ""
+            },
+            "answer_party": {
+                "altname": "<altname>",
+                "candidate": "",
+                "websocket": None(initial),
+                "client_type": "end/service", # It could be end type or service client. 
+                "register_time": ""
+            }
+        }
+    }
+    """
     
     chat_rooms = {}
     """
@@ -97,7 +117,18 @@ class SignalManager:
     def initPeerConnectionUUID(self, data):
         data["pc_uuid"] = str(uuid.uuid4())
         SignalManager.allocate_pc_uuid[data["pc_uuid"]] = {
-            "ws": data["websocket"], "altname": data["altname"]}
+            "type": "1-to-1",
+            "offer_party": {
+                "websocket": data["websocket"],
+                "altname": data["altname"],
+                "candidate": None
+            },
+            "answer_party": {
+                "altname": None,
+                "candidate": None,
+                "websocket": None
+            }
+        }
         del data["directive"]
         del data["websocket"]
         data["signal_response"] = "pc_initiated_uuid"
