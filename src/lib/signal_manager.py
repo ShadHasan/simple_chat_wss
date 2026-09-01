@@ -20,7 +20,7 @@ class SignalManager:
     """
     
     # below is to main uniqueness of pc_uuid across all the websocket
-    # It will be static hence will not shared with instance.
+    # It will be "static" hence will not shared with instance.
     allocate_pc_uuid = {}
     
     chat_rooms = {}
@@ -36,6 +36,8 @@ class SignalManager:
     
     email_to_altname = {}
     """
+    email_to_altname is generally used for authentication.
+    
     Note: altname is unique assigned, cannot be allocated same altname to multiple email.
     But an email can have multiple altnames.
     {
@@ -51,11 +53,46 @@ class SignalManager:
         "<altname_3>": ...
     }
     """
+    
+    """
+    Key Fact:
+    Note: altname_1 could be altname_1 which mean altname_1@localhost, or to be with
+        specific domain i.e. altname_1@example.com
+        
+        however which signal server tied to its one domain or aliases. 
+        Hence key of all_altnames belongs these domain only.
+        However networks of any altname this domains can keep with other domain.
+        But for communication signal need to send to other domain.
+        
+    """
 	
     
     def __init__(self):
-        pass
         # load email_altname from database
+        all_altnames = {
+            "altname_1" : {
+                "networks": ["altname_4", "altname_7"], "access": "public"
+            },
+            "altname_2": {
+                "networks": [], "access": "private"
+            },
+            "altname_3": {
+                "networks": ["altname_4"], "access": "private"
+            },
+            "altname_4" : {
+                "networks": ["altname_7"], "access": "public"
+            },
+            "altname_5": {
+                "networks": ["altname_6", "altname_4", "altname_7"], "access": "private"
+            },
+            "altname_6" : {
+                "networks": ["altname_2", "altname_4", "altname_7"], "access": "private"
+            },
+            "altname_7": {
+                "networks": ["altname_6", "altname_4", "altname_3"], "access": "private"
+            },
+        }
+        
         
     def initPeerConnectionUUID(self, data):
         data["pc_uuid"] = str(uuid.uuid4())

@@ -742,6 +742,8 @@
 			}
 			
 			
+			
+			
 		}
 		
 		class ChatRoom {
@@ -944,8 +946,6 @@
 				
 				this.signalingSocket.addEventListener('open', (event) => {
 					this.mainUI.appendLog("Signal socket is ready", "info");
-					this.signalUiHandles.btnHandleDisconnectSignalServer.handle.style.display = "block";
-					this.signalUiHandles.btnHandleConnectSignalServer.handle.style.display = "none";
 				});
 				
 				 // Listener for If there's an error with the WebSocket connection
@@ -1010,7 +1010,7 @@
 							break;
 						case "access_updated":
 							this.mainUI.appendLog("Access updated", "info");
-							loadAccessUpdate();
+							this.loadAccessUpdate();
 							break
 						case "fowarded_network_request":
 							if (response.status == "ok") {
@@ -1027,10 +1027,10 @@
 							}
 							break;
 						case "incoming_network_request":
-							loadNetworkRequest(data);
+							this.loadNetworkRequest(data);
 							break;
 						case "incoming_network_request_response":
-							updateMyNetwork();
+							this.updateMyNetwork();
 							break;
 						case "public_altnames":
 							this.mainUI.appendLog("Signal respon with public altnames", "info");
@@ -1040,7 +1040,7 @@
 							this.loadMyAltnameNetworks(response.networks_altnames);
 							break;
 						case "pc_initiated_uuid":
-							createNewPeerConnection("initiated", data.pc_uuid, data.altname, data.offerType);
+							this.createNewPeerConnection("initiated", data.pc_uuid, data.altname, data.offerType);
 							break;
 						default:
 							this.mainUI.appendLog("Unknown signal response", "error");
@@ -1066,6 +1066,11 @@
 						}
 					}
 				}
+				
+				this.signalUiHandles.btnHandleLoadPublicAltname.handle.addEventListener("click", (event) => {
+					this.getPublicAltname();
+				});
+				
 				
 			}
 			
@@ -1094,7 +1099,12 @@
 			
 			
 			loadPublicAltname(altnames) {
-				
+				for(let i =0; i<altnames.length; i++) {
+					this.mainUI.appendPanelEntry(
+						this.signalUiHandles.panelPublicAltnames.id, 
+						`<div>${altnames[i]}</div>`
+					);
+				}
 			}
 			
 			loadIncomingOffer() {
