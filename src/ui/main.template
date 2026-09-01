@@ -770,7 +770,6 @@
 				this.current_state = "initial";
 				this.mainUI = mainUI;
 				this.altname = altname;
-				this.signalServer = signalServer;
 				this.candidate = null;
 				this.offer = null;
 				this.label = crypto.randomUUID();
@@ -806,7 +805,7 @@
 				this.ldpOfferSetPromise = new Promise((resolve) => {
 					// Generate the local SDP description object with offer
 					// Save it locally (This starts internal ICE gathering)
-					offer = this.pc.createOffer();
+					let offer = this.pc.createOffer();
 					this.pc.setLocalDescription(offer);
 					resolve();
 				});
@@ -824,8 +823,8 @@
 				};
 				
 				// --- 3. CONNECTION CLOSE Log ---
-				pc.onconnectionstatechange = () => {
-				  switch (pc.connectionState) {
+				this.pc.onconnectionstatechange = () => {
+				  switch (this.pc.connectionState) {
 					case "disconnected":
 					case "failed":
 					  this.mainUI.appendLog("Network dropped. Triggering automatic cleanup.", "error");
@@ -844,7 +843,7 @@
 				this.ldpAnswerSetPromise = new Promise((resolve) => {
 					// Generate the local SDP description object with answer
 					this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
-					answer = this.pc.createAnswer();
+					let answer = this.pc.createAnswer();
 					this.pc.setLocalDescription(answer);
 					resolve(True);
 				});
@@ -956,7 +955,10 @@
 				// Listener for If the connection is closed
                 this.signalingSocket.addEventListener('close', () => {
 					this.mainUI.appendLog("WebSocket connection closed", "info");
-					document.getElementById("connect-signal-server-btn").click();
+					
+					if(document.getElementById("connect-signal-server-txt").textContent != "DISCONNECTED") {
+						document.getElementById("connect-signal-server-btn").click();
+					}
                 });
 				
 				this.signalingSocket.onmessage = (event) => {
@@ -1040,7 +1042,7 @@
 							this.loadMyAltnameNetworks(response.networks_altnames);
 							break;
 						case "pc_initiated_uuid":
-							this.createNewPeerConnection("initiated", data.pc_uuid, data.altname, data.offerType);
+							this.createNewPeerConnection("initiated", response.pc_uuid, response.altname, response.offerType, response.referID);
 							break;
 						default:
 							console.log(response);
@@ -1076,7 +1078,7 @@
 				
 			}
 			
-			createNewPeerConnection(phase, uniquePCName, altname, offerType) {
+			createNewPeerConnection(phase, uniquePCName, altname, offerType, referID) {
 				switch(phase) {
 				    // case init will triggered manually with uniquePCName null
 					case "init":
@@ -1084,14 +1086,17 @@
 						this.send(JSON.stringify({
 							directive: this.signal_directive[8],
 							altname: altname,
-							offerType: offerType
+							offerType: offerType,
+							referID: referID
 						}));
 						break;
 					// case initiated will be automatically after signal response.
 					case "initiated":
+						this.mainUI.appendLog(`Received peer id: ${uniquePCName}`, "info");
 						let pc = new PeerConnection(this.mainUI, altname, offerType);
 						this.peerConnections[uniquePCName] = {
-							pc: pc
+							pc: pc,
+							referID: referID
 						};
 						this.mainUI.appendLog("Peer connection initialized", "info");
 						break;
@@ -1130,7 +1135,7 @@
 			// Signal function related
 			checkAndRegisterCandidate(uniquePCName, access=null) {
 				this.mainUI.appendLog("Checking and registering candidate", "info");
-				if(accept == null)
+				if(access == null)
 					access = "private";
 				
 				if (this.peerConnections[uniquePCName].candidate != null && this.signalingSocket.readyState === WebSocket.OPEN) {
@@ -1254,7 +1259,27 @@
 	// WORKFLOW
 	function workflowConnect(altname) {
 		mainUI.appendLog(altname, "info");
-		signalManager.createNewPeerConnection();
+		let referID = crypto.randomUUID();
+		let uniquePCName = null;
+		signalManager.createNewPeerConnection("init", null, myAltname, "chat", referID);
+		
+		new Promise(async (resolve) => {
+			let pc_uuid = null;
+			while(pc_uuid == null) {
+				for (let p_c in signalManager.peerConnections) {
+					if (signalManager.peerConnections[p_c].referID == referID) {
+						pc_uuid = p_c;
+						break;
+					}
+				}
+				await sleep(1000);
+			}
+			resolve(pc_uuid);
+		}).then((pc_uuid) => {
+			uniquePCName = pc_uuid;
+			mainUI.appendLog(`New peer connection UUID ${uniquePCName}`, "info");
+		});
+		
 	}
 	
 	

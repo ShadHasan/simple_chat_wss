@@ -106,9 +106,9 @@ class SignalManager:
 
     def register_websocket_candidate(self, data):
         try:
-            if candidate_socket_map.get(data["websocket"]) is None:
+            if self.candidate_socket_map.get(data["websocket"]) is None:
             
-                candidate_socket_map[data["websocket"]] = {
+                self.candidate_socket_map[data["websocket"]] = {
                     data["pc_uuid"]: {
                         "candidate": data["candidate"],
                         "altname": SignalManager.allocate_pc_uuid[pc_uuid]["altname"],
@@ -117,7 +117,7 @@ class SignalManager:
                     }
                 }
             else:
-                candidate_socket_map[data["websocket"]][data["pc_uuid"]] = {
+                self.candidate_socket_map[data["websocket"]][data["pc_uuid"]] = {
                     "candidate": data["candidate"],
                     "altname": SignalManager.allocate_pc_uuid[pc_uuid]["altname"],
                     "client_type": data["client_type"],
