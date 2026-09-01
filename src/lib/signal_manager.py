@@ -69,7 +69,7 @@ class SignalManager:
     
     def __init__(self):
         # load email_altname from database
-        all_altnames = {
+        self.all_altnames = {
             "altname_1" : {
                 "networks": ["altname_4", "altname_7"], "access": "public"
             },
@@ -136,8 +136,8 @@ class SignalManager:
     def get_public_altname(self, data):
         altnames = []
         try:
-            for altname in all_altnames:
-                if altname["access"] == "public":
+            for altname in self.all_altnames.keys():
+                if self.all_altnames[altname]["access"] == "public":
                     altnames.append(altname)
         except Exception as e:
             print("Exception occured in fetching public altnames: {}".format(e))
@@ -256,7 +256,7 @@ class SignalManager:
         return data
         
         
-    async def signal_directive_switch(self, websocket, data):
+    def signal_directive_switch(self, websocket, data):
         # Please note: if signal socket gone, simply candidate is loss. Hence
         # client has to connect signal socket and register candidate to its
         # signal socket.
@@ -276,38 +276,37 @@ class SignalManager:
         
         signal_processor = {
             "pc_init_uuid": {
-                "call": initPeerConnectionUUID
+                "call": self.initPeerConnectionUUID
             },
             "register_candidates": {
-                "call":  register_websocket_candidate
+                "call":  self.register_websocket_candidate
             },
             "request_candidate": {
-                "call": get_candidate_by_altname
+                "call": self.get_candidate_by_pc_uuid
             },
             "forward_offer": {
-                "call": forward_signal_to
+                "call": self.forward_signal_to
             },
             "forward_answer": {
-                "call": forward_signal_to
+                "call": self.forward_signal_to
             },
             "forward_network_request": {
-                "call": forward_signal_to
+                "call": self.forward_signal_to
             },
             "forward_network_request_response": {
-                "call": forward_signal_to
+                "call": self.forward_signal_to
             },
             "public_altname": {
-                "call": get_public_altname
+                "call": self.get_public_altname
             },
             "update_my_altname_access": {
-                "call": update_my_altname_access
+                "call": self.update_my_altname_access
             },
             "get_my_networks": {
-                "call": get_my_altname_networks
+                "call": self.get_my_altname_networks
             }
         }
         data["websocket"] = websocket
-        
-        await websocket.send_json(signal_processor[data["directive"]]["call"](data))
+        return signal_processor[data["directive"]]["call"](data)
 		
 	

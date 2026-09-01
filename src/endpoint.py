@@ -1,4 +1,5 @@
 import os
+import json
 import datetime
 from fastapi import FastAPI, Body, Header, HTTPException, Cookie, Response, Depends, status, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -138,9 +139,10 @@ async def websocket_signal(websocket: WebSocket):
                 data = await websocket.receive_text()
                 data_json = json.loads(data)
                 print(data_json)
-                signal_manager.signal_directive_switch(websocket, data_json)
-            except:
-                await websocket.send_json({"Error": "Unknown exception"})
+                result = signal_manager.signal_directive_switch(websocket, data_json)
+                await websocket.send_json(result)
+            except Exception as e:
+                await websocket.send_json({"Server error": "{}".format(str(e))})
     except (WebSocketDisconnect, ConnectionClosed) as rrr:
         print("Exception capture on websocket connection", rrr)
         del signal_manager.candidate_socket_map[websocket]
