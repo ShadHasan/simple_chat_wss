@@ -111,7 +111,7 @@ class SignalManager:
                 self.candidate_socket_map[data["websocket"]] = {
                     data["pc_uuid"]: {
                         "candidate": data["candidate"],
-                        "altname": SignalManager.allocate_pc_uuid[pc_uuid]["altname"],
+                        "altname": SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"],
                         "client_type": data["client_type"],
                         "register_time": datetime.datetime.now()
                     }
@@ -119,14 +119,15 @@ class SignalManager:
             else:
                 self.candidate_socket_map[data["websocket"]][data["pc_uuid"]] = {
                     "candidate": data["candidate"],
-                    "altname": SignalManager.allocate_pc_uuid[pc_uuid]["altname"],
+                    "altname": SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"],
                     "client_type": data["client_type"],
                     "register_time": datetime.datetime.now()
                 }
             
             data["status"] = "ok"
-        except:
+        except Exception as e:
             data["status"] = "nok"
+            data["error"] = str(e)
         del data["directive"]
         del data["websocket"]
         data["signal_response"] = "registered_candidate"

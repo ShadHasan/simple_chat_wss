@@ -814,13 +814,18 @@
 					this.mainUI.appendLog("LDP set with offer is ready", "info");
 				});
 				
-				// --- 2. ICE GATHERING ---
-				this.pc.onicecandidate = (event) => {
-					if (event.candidate) {
-						this.candidate = event.candidate;
-						this.current_state = "candiate_gathered";
-					}
-				};
+				this.candidateGatherPromise = new Promise((resolve) => {
+					// --- 2. ICE GATHERING ---
+					this.pc.onicecandidate = (event) => {
+						if (event.candidate) {
+							this.mainUI.appendLog("Candidate gathered", "info");
+							this.candidate = event.candidate;
+							this.current_state = "candiate_gathered";
+							resolve();
+						}
+					};
+				});
+				
 				
 				// --- 3. CONNECTION CLOSE Log ---
 				this.pc.onconnectionstatechange = () => {
@@ -972,6 +977,7 @@
 								this.peerConnections[response.pc_uuid].pc.changeState("candidate_registered");
 								this.mainUI.appendLog("candidate registered successfully", "info");
 							} else {
+								this.mainUI.appendLog(`candidate error: ${response.error}`, "debug");
 								this.mainUI.appendLog("candidate registeration failed", "error");
 							}
 							break;
@@ -1137,19 +1143,20 @@
 				this.mainUI.appendLog("Checking and registering candidate", "info");
 				if(access == null)
 					access = "private";
-				
-				if (this.peerConnections[uniquePCName].candidate != null && this.signalingSocket.readyState === WebSocket.OPEN) {
-					// 
-					this.send(JSON.stringify({
-						pc_uuid: uniquePCName,
-						directive: this.signal_directive[0],
-						client_type: "end",
-						candidate: this.peerConnections[uniquePCName].candidate
-					}));
-					this.mainUI.appendLog("Send candidate registeration", "info");
-				} else {
-					this.mainUI.appendLog("Either candidate or websocket is not ready", "error");
-				}
+					
+				this.peerConnections[uniquePCName].pc.candidateGatherPromise.then(() => {
+					if (this.signalingSocket.readyState === WebSocket.OPEN) {
+							this.send(JSON.stringify({
+								pc_uuid: uniquePCName,
+								directive: this.signal_directive[0],
+								client_type: "end",
+								candidate: this.peerConnections[uniquePCName].pc.candidate
+							}));
+						this.mainUI.appendLog("Send candidate registeration", "info");
+					} else {
+						this.mainUI.appendLog(" websocket is not ready", "error");
+					}
+				});
 				
 			}
 			
@@ -1278,6 +1285,7 @@
 		}).then((pc_uuid) => {
 			uniquePCName = pc_uuid;
 			mainUI.appendLog(`New peer connection UUID ${uniquePCName}`, "info");
+			signalManager.checkAndRegisterCandidate(uniquePCName);
 		});
 		
 	}
