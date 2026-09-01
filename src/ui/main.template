@@ -21,7 +21,8 @@
 		.header {
 			display: flex;
             width: 100vw;
-            height: 6vh;
+            // height: 6vh;
+			min-height: 45px;
             position: relative;
 			flex-direction: row;
 			justify-content: space-around;
@@ -179,6 +180,72 @@
         .restore-trigger.visible {
             display: block;
         }
+		
+		/* Container for the toggle elements */
+		.toggle-container {
+		  display: flex;
+		  align-items: center;
+		  gap: 12px;
+		}
+
+		/* The switch container box */
+		.switch {
+		  position: relative;
+		  display: inline-block;
+		  width: 60px;
+		  height: 34px;
+		}
+
+		/* Hide the default HTML checkbox button */
+		.switch input {
+		  opacity: 0;
+		  width: 0;
+		  height: 0;
+		}
+
+		/* The visual slider tracked background */
+		.slider {
+		  position: absolute;
+		  cursor: pointer;
+		  top: 0;
+		  left: 0;
+		  right: 0;
+		  bottom: 0;
+		  background-color: #ccc;
+		  transition: 0.4s;
+		  border-radius: 34px;
+		}
+
+		/* The inner circle (knob) of the slider */
+		.slider:before {
+		  position: absolute;
+		  content: "";
+		  height: 26px;
+		  width: 26px;
+		  left: 4px;
+		  bottom: 4px;
+		  background-color: white;
+		  transition: 0.4s;
+		  border-radius: 50%;
+		  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+		}
+
+		/* Track background changes to green when checked */
+		input:checked + .slider {
+		  background-color: #4cd964;
+		}
+
+		/* Push the knob to the right side when checked */
+		input:checked + .slider:before {
+		  transform: translateX(26px);
+		}
+
+		/* Highlight the switch when using keyboard navigation for accessibility */
+		input:focus + .slider {
+		  box-shadow: 0 0 1px #4cd964;
+		}
+
+		
     </style>
 	<!-- Stylesheet Tag (Placed inside <head>) -->
 	<link rel="stylesheet" href="/static/style/logger.css">
@@ -194,7 +261,9 @@
 			<img id="icon-img" src="https://www.advanien.com/common_screen_horizontal_fullhd/default_div_bg_Advenien__2.png" alt="icon">
 		</div>
 		<div class="server-section" style="display: flex;">
-			<button class="header-button" id="connect-signal-server-btn">Connect Signal</button>
+			<div style="display:flex;align-items:center;margin: 0px 5px;"><span><b>Signal Server</b></span></div>
+			<div id="connect-signal-server-container"style="display:flex;"></div>
+			<button class="header-button" id="disconnect-signal-server-btn" style="display:none;">Disconnect Signal</button>
 			<button class="header-button" id="load-public-altname-btn">Load Public</button>
 			<button class="header-button" id="go-public-button">Go Public</button>
 		</div>
@@ -368,6 +437,59 @@
 				
 				// Auto scroll container down to show the latest entry
 				container.scrollTop = container.scrollHeight;
+			}
+			
+			toggelSwitchFactory(parentContainerEle, switchId, statusTextId, checkedText, uncheckedText, checkedCallback, uncheckedCallback) {
+				let toggleHTML = `<div class="toggle-container">
+				  <!-- Accessible switch label setup -->
+				  <label class="switch">
+					<input type="checkbox" id="${switchId}">
+					<span class="slider"></span>
+				  </label>
+				  <!-- Label reflecting the real-time state change -->
+				  <span id="${statusTextId}">${uncheckedText}</span>
+				</div>
+				`;
+				
+				let styles = document.createElement('style');
+				styles.textContent = `
+				  /* Status text display styling */
+				  #${switchId} {
+					font-size: 1.2rem;
+					font-weight: bold;
+					color: #333;
+					min-width: 40px;
+				  }
+				`;
+				parentContainerEle.innerHTML += toggleHTML;
+				document.head.appendChild(styles);
+				
+				// Grab DOM elements
+			  let toggleSwitchEle = document.getElementById(switchId);
+			  let statusTextEle = document.getElementById(statusTextId);
+
+			  // Add event listener to listen for changes
+			  toggleSwitchEle.addEventListener('change', function() {
+				if (this.checked) {
+				  statusTextEle.textContent = checkedText;
+				  // Add additional logic here for when the switch turns ON
+				  // console.log("Switch is active.");
+				  
+				  if(checkedCallback != null) {
+					checkedCallback();
+				  }
+				  
+				} else {
+				  statusTextEle.textContent = uncheckedText;
+				  // Add additional logic here for when the switch turns OFF
+				  // console.log("Switch is inactive.");
+				  if (uncheckedCallback != null) {
+					uncheckedCallback();
+				  }
+				}
+			  });
+			  
+				
 			}
 			
 			chatWindowFactory(chatRoomId, dataChannel) {
@@ -811,7 +933,7 @@
 				this.peerConnections = {};
 				
 				this.signalUiHandles = {
-					btnHandleConnectSignalServer: {handle: null, id: "connect-signal-server-btn"},
+					btnHandleDisconnectSignalServer: {handle: null, id: "disconnect-signal-server-btn"},
 					btnHandleLoadPublicAltname: {handle: null, id: "load-public-altname-btn"},
 					btnHandleGoPublic: {handle: null, id: "load-public-altname-btn"},
 					panelOfferIncoming: {handle: null, id: "offer-incoming-panel"},
@@ -819,6 +941,23 @@
 					panelNetworkAltnames: {handle: null, id: "network-altnames-panel"},
 					panelChatWindow: {handle: null, id: "chat-window-panel"}
 				};
+				
+				this.signalingSocket.addEventListener('open', (event) => {
+					this.mainUI.appendLog("Signal socket is ready", "info");
+					this.signalUiHandles.btnHandleDisconnectSignalServer.handle.style.display = "block";
+					this.signalUiHandles.btnHandleConnectSignalServer.handle.style.display = "none";
+				});
+				
+				 // Listener for If there's an error with the WebSocket connection
+                this.signalingSocket.addEventListener('error', (error) => {
+					this.mainUI.appendLog(`WebSocket Error:, ${error}`, "error");
+
+                });
+				
+				// Listener for If the connection is closed
+                this.signalingSocket.addEventListener('close', () => {
+					this.mainUI.appendLog("WebSocket connection closed", "info");
+                });
 				
 				this.signalingSocket.onmessage = (response) => {
 					
@@ -1093,9 +1232,28 @@
 		}
 	
 	const mainUI = new MainUI();
-	mainUI.asyncInit();
-	const signalManager = new SignalManager(mainUI);
-	signalManager.asyncInit();
+	
+	// Note: async return promise.
+	mainUI.asyncInit().then(()=>{
+		let signalManager = null;
+	
+		let cssc = document.getElementById("connect-signal-server-container");
+		mainUI.toggelSwitchFactory(
+			cssc, 
+			"connect-signal-server-btn", 
+			"connect-signal-server-txt", 
+			"CONNECTED", 
+			"DISCONNECTED", () => {
+				signalManager = new SignalManager(mainUI);
+				signalManager.asyncInit();
+			}, () => {
+				if (signalManager != null && signalManager.signalingSocket.readyState === WebSocket.OPEN) {
+					signalManager.signalingSocket.close();
+				}
+			});
+		
+	});
+	
 	
 	/*
 	// --- Demo Examples ---
