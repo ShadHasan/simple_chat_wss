@@ -3,18 +3,10 @@ import datetime
 
 class SignalManager:
 
-    candidate_socket_map = {}
+    socket_altname = {}
     """
     {
-        <ws>: {
-            "<pc_uuid>": {
-                "access": "public/private",
-                "pc_uuid": "<>",
-                "candidate": <candidate>,
-                "altname": "",
-                
-            }
-        }
+        <ws>: <altname>
     }
     """
     
@@ -113,6 +105,9 @@ class SignalManager:
             },
         }
         
+    def iam(self, data):
+        self.socket_altname[data["websocket"]] = data[altname]
+        
         
     def initPeerConnectionUUID(self, data):
         data["pc_uuid"] = str(uuid.uuid4())
@@ -121,11 +116,13 @@ class SignalManager:
             "offer_party": {
                 "websocket": data["websocket"],
                 "altname": data["altname"],
+                "ldp_sdp": None,
                 "candidate": None
             },
             "answer_party": {
                 "altname": None,
                 "candidate": None,
+                "ldp_sdp": None,
                 "websocket": None
             }
         }
@@ -137,24 +134,8 @@ class SignalManager:
 
     def register_websocket_candidate(self, data):
         try:
-            if self.candidate_socket_map.get(data["websocket"]) is None:
-            
-                self.candidate_socket_map[data["websocket"]] = {
-                    data["pc_uuid"]: {
-                        "candidate": data["candidate"],
-                        "altname": SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"],
-                        "client_type": data["client_type"],
-                        "register_time": datetime.datetime.now()
-                    }
-                }
-            else:
-                self.candidate_socket_map[data["websocket"]][data["pc_uuid"]] = {
-                    "candidate": data["candidate"],
-                    "altname": SignalManager.allocate_pc_uuid[data["pc_uuid"]]["altname"],
-                    "client_type": data["client_type"],
-                    "register_time": datetime.datetime.now()
-                }
-            
+            SignalManager.allocate_pc_uuid[data["pc_uuid"]][data["party"]]["candidate"] = data["candidate"]
+            SignalManager.allocate_pc_uuid[data["pc_uuid"]][data["party"]]["ldp_sdp"] = data["sdp"]
             data["status"] = "ok"
         except Exception as e:
             data["status"] = "nok"
@@ -195,13 +176,17 @@ class SignalManager:
         candidate = None
         try:
             pc_uuid = data["pc_uuid"]
-            candidate = candidate_socket_map[SignalManager.allocate_pc_uuid[pc_uuid]["ws"]][pc_uuid]["candidate"]
+            party = data["party"]
+            
+            candidate = SignalManager.allocate_pc_uuid[pc_uuid][party]["candidate"]
+            sdp = SignalManager.allocate_pc_uuid[pc_uuid][party]["ldp_sdp"]
         except Exception as e:
             print("Exception occured in fetching candidate: {}".format(e))
         del data["directive"]
         del data["websocket"]
         data["signal_response"] = "altname_candidate"
-        data["candidates"] = candidate
+        data["candidate"] = candidate
+        data["sdp"] = sdp
         return data
         
     async def forward_signal_to(self, data):
@@ -210,15 +195,22 @@ class SignalManager:
             if data["directive"] == "forward_offer":
                 data["directive"] = "incoming_offer"
                 to_altname = data["to_altname"]
-                for pc_uuid in SignalManager.allocate_pc_uuid.keys():
-                    if SignalManager.allocate_pc_uuid[pc]["altname"] == to_altname:
-                        data["answer_pc_uuid"] = pc_uuid
-                        await SignalManager.allocate_pc_uuid[pc]["ws"].send_json(data)
+                for ws in self.socket_altname:
+                    if self.socket_altname[ws] == to_altname:
+                        await ws.send_json(data)
                 signal_response = "fowarded_offer"
             elif data["directive"] == "forward_answer":
                 data["directive"] = "incoming_answer"
-                await SignalManager.allocate_pc_uuid[data["offer_pc_uuid"]]["ws"].send_json(data)
-                signal_response = "fowarded_answer"
+                
+                if SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"].get("altname") is None:
+                    SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"]["altname"] = to_altname
+                    SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"]["websocket"] = data["websocket"]
+                    SignalManager.allocate_pc_uuid[data["pc_uuid"]]["offer_party"]["websocket"].send_json(data)
+                else:
+                    signal_response = "fowarded_answer"
+                    data["error"] = "already responded by other client"
+                    raise RuntimeError("already responded")
+                
             
             elif data["directive"] == "forward_network_request":
                 to_altname = data["to_altname"]
@@ -248,7 +240,7 @@ class SignalManager:
                 
             status = "ok"
         except Exception as e:
-            print("Exception occured in fetching candidate: {}".format(e))
+            print("Exception occured in {}: {}".format(data["directive"], e))
             status = "nok"
         del data["directive"]
         del data["websocket"]
@@ -307,6 +299,9 @@ class SignalManager:
         """
         
         signal_processor = {
+            "my_altname": {
+                "call": self.iam
+            },
             "pc_init_uuid": {
                 "call": self.initPeerConnectionUUID
             },

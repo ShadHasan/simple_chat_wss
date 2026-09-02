@@ -145,7 +145,7 @@ async def websocket_signal(websocket: WebSocket):
                 await websocket.send_json({"Server error": "{}".format(str(e))})
     except (WebSocketDisconnect, ConnectionClosed) as rrr:
         print("Exception capture on websocket connection", rrr)
-        del signal_manager.candidate_socket_map[websocket]
+        del signal_manager.socket_altname[websocket]
         
 
 # --- static file ---

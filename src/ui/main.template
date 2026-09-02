@@ -879,6 +879,7 @@
 			}
 			
 			addPeerCandidate() {
+				
 			}
 			
 			send(message) {
@@ -930,6 +931,10 @@
 				}
 			}
 			
+			getState() {
+				return this.current_state;
+			}
+			
 		}
 		
 		
@@ -943,7 +948,7 @@
 				
 			#possible_network_request = ["accepted", "rejected"];
 		
-			constructor(mainUI) {
+			constructor(mainUI, myAltname) {
 				this.signalingSocket = new WebSocket('wss://wss.tinyorb.org:10008/ws/signal');
 				this.mainUI = mainUI;
 				this.peerConnections = {};
@@ -960,6 +965,9 @@
 				
 				this.signalingSocket.addEventListener('open', (event) => {
 					this.mainUI.appendLog("Signal socket is ready", "info");
+					this.send(JSON.stringify({
+						altname: myAltname
+					}));
 				});
 				
 				 // Listener for If there's an error with the WebSocket connection
@@ -994,6 +1002,7 @@
 							break;
 						case "forwarded_offer":
 							if (response.status == "ok") {
+								this.peerConnections[response.pc_uuid].pc.changeState("offer_forwarded");
 								this.mainUI.appendLog("Forwared offer successfully", "info");
 							} else {
 								this.mainUI.appendLog("Offer forward fail", "error");
@@ -1050,7 +1059,7 @@
 							this.loadMyAltnameNetworks(response.networks_altnames);
 							break;
 						case "pc_initiated_uuid":
-							this.createNewPeerConnection("initiated", response.pc_uuid, response.altname, response.offerType, response.referID);
+							this.createNewPeerConnection("initiated", response.pc_uuid, response.altname, response.offerType, response.party, response.referID);
 							break;
 						default:
 							console.log(response);
@@ -1086,7 +1095,7 @@
 				
 			}
 			
-			createNewPeerConnection(phase, uniquePCName, altname, offerType, referID) {
+			createNewPeerConnection(phase, uniquePCName, altname, offerType, party, referID) {
 				switch(phase) {
 				    // case init will triggered manually with uniquePCName null
 					case "init":
@@ -1095,6 +1104,7 @@
 							directive: this.signal_directive[8],
 							altname: altname,
 							offerType: offerType,
+							party: party,
 							referID: referID
 						}));
 						break;
@@ -1104,6 +1114,7 @@
 						let pc = new PeerConnection(this.mainUI, altname, offerType);
 						this.peerConnections[uniquePCName] = {
 							pc: pc,
+							party: party,
 							referID: referID
 						};
 						this.mainUI.appendLog("Peer connection initialized", "info");
@@ -1141,18 +1152,22 @@
 			
 			
 			// Signal function related
-			checkAndRegisterCandidate(uniquePCName, access=null) {
+			checkAndRegisterCandidate(uniquePCName,access=null) {
 				this.mainUI.appendLog("Checking and registering candidate", "info");
 				if(access == null)
 					access = "private";
 					
 				this.peerConnections[uniquePCName].pc.candidateGatherPromise.then(() => {
+					return this.peerConnections[uniquePCName].pc.ldpOfferSetPromise;
+				}).then(() => {
 					if (this.signalingSocket.readyState === WebSocket.OPEN) {
 							this.send(JSON.stringify({
 								pc_uuid: uniquePCName,
+								party: this.peerConnections[uniquePCName].party,
 								directive: this.signal_directive[0],
 								client_type: "end",
-								candidate: this.peerConnections[uniquePCName].pc.candidate
+								candidate: this.peerConnections[uniquePCName].pc.candidate,
+								sdp: this.peerConnections[uniquePCName].pc.localDescription
 							}));
 						this.mainUI.appendLog("Send candidate registeration", "info");
 					} else {
@@ -1165,15 +1180,13 @@
 			// This will trigger manually. Hence it is not part of automation.
 			sendOffer(uniquePCName, toAltname) {
 				this.mainUI.appendLog("Sending offer", "info");
-				this.peerConnections[uniquePCName].pc.ldpOfferSetPromise.then(() => {
-					this.send(JSON.stringify({
-						offer_pc_uuid: uniquePCName,
-						directive: this.signal_directive[1],
-						to_altname: toAltname,
-						sdp: this.peerConnections[uniquePCName].pc.localDescription
-					}));
-					this.mainUI.appendLog("Offer sent", "info");
-				});
+				this.send(JSON.stringify({
+					pc_uuid: uniquePCName,
+					party: this.peerConnections[uniquePCName].party,
+					directive: this.signal_directive[1],
+					to_altname: toAltname
+				}));
+				this.mainUI.appendLog("Offer sent", "info");
 				
 			}
 			
@@ -1184,8 +1197,8 @@
 				if (offerAccepted) {
 					this.peerConnections[uniquePCName].pc.ldpAnswerSetPromise.then(()=>{
 						this.send(JSON.stringify({
-							answer_pc_uuid: uniquePCName,
-							offer_pc_uuid: this.peerConnections[uniquePCName]["offer_pc_uuid"],
+							pc_uuid: uniquePCName,
+							party: "answer",
 							directive: this.signal_directive[2],
 							to_altname: toAltname,
 							sdp: this.peerConnections[uniquePCName].pc.localDescription,
@@ -1269,11 +1282,13 @@
 	
 	
 	// WORKFLOW
+	
+	// workflow of sending offer part of connect
 	function workflowConnect(altname) {
 		mainUI.appendLog(altname, "info");
 		let referID = crypto.randomUUID();
 		let uniquePCName = null;
-		signalManager.createNewPeerConnection("init", null, myAltname, "chat", referID);
+		signalManager.createNewPeerConnection("init", null, myAltname, "chat", "offer_party", referID);
 		
 		new Promise(async (resolve) => {
 			let pc_uuid = null;
@@ -1291,13 +1306,36 @@
 			uniquePCName = pc_uuid;
 			mainUI.appendLog(`New peer connection UUID ${uniquePCName}`, "info");
 			signalManager.checkAndRegisterCandidate(uniquePCName);
+			
+			
+			return new Promise(async (resolve, reject) => {
+				retries = 7;
+				while (retries > 0) {
+					if (signalManager.peerConnections[uniquePCName].pc.getState() == "candidate_registered") {
+						break;
+					}
+					await sleep(500);
+					retries = retries - 1;
+				}
+				if (signalManager.peerConnections[uniquePCName].pc.getState() == "candidate_registered")
+					resolve();
+				else 
+					reject("Max tries reach, candidate not registered");
+			});
+		}).then(() => {
+			signalManager.sendOffer(uniquePCName, altname);
+		}).catch((error) => {
+			mainUI.appendLog(error, "error");
 		});
 		
 	}
 	
-	function offerIncomingWorkflow(incomingRequest) {
-		this.peerConnections[incomingRequest.pc_uuid]["party"] = "answering";
-		this.peerConnections[incomingRequest.pc_uuid].pc.createAnwerPromise(response.sdp);
+	function workflowIncomingAnswer(incomingAnswerRequest) {
+	}
+	
+	function workflowIncomingOffer(incomingOfferRequest) {
+		this.peerConnections[incomingOfferRequest.pc_uuid]["party"] = "answering";
+		this.peerConnections[incomingOfferRequest.pc_uuid].pc.createAnwerPromise(incomingOfferRequest.sdp);
 	}
 	
 	
@@ -1314,7 +1352,7 @@
 			"connect-signal-server-txt", 
 			"CONNECTED", 
 			"DISCONNECTED", () => {
-				signalManager = new SignalManager(mainUI);
+				signalManager = new SignalManager(mainUI, myAltname);
 				signalManager.asyncInit();
 			}, () => {
 				if (signalManager != null && signalManager.signalingSocket.readyState === WebSocket.OPEN) {
