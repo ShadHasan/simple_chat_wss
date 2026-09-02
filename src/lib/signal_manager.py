@@ -107,6 +107,7 @@ class SignalManager:
         }
         
     def iam(self, data):
+        # Here we need to validate/authenticate for altname
         self.socket_altname[data["websocket"]] = data["altname"]
         data["signal_response"] = "socket_mapped"
         del data["directive"]
@@ -115,6 +116,7 @@ class SignalManager:
         
         
     def initPeerConnectionUUID(self, data):
+        # Here we need to validate/authenticate for altname
         data["pc_uuid"] = str(uuid.uuid4())
         SignalManager.allocate_pc_uuid[data["pc_uuid"]] = {
             "type": "1-to-1",

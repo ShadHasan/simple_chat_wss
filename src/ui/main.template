@@ -269,7 +269,10 @@
 		</div>
 		<div style="justify-content:flex-end;display: flex;">
 			<select class="header-button" id="altname_list">
-				<option>Altname</option>
+				<option value="altname_1">altname_1</option>
+				<option value="altname_2">altname_2</option>
+				<option value="altname_3">altname_3</option>
+				<option value="altname_4">altname_4</option>
 			</select>
 		</div>
 	</div>
@@ -370,6 +373,7 @@
 				const sidePanel = document.getElementById('sidePanel');
 				const minimizeBtn = document.getElementById('minimizeBtn');
 				const restoreBtn = document.getElementById('restoreBtn');
+				const altnameList = document.getElementById('altname_list');
 				this.xlogger = null;
 
 				minimizeBtn.addEventListener('click', () => {
@@ -382,6 +386,28 @@
 					restoreBtn.classList.remove('visible');
 				});
 				
+				globalThis.myAltname = altnameList.value;
+				altnameList.addEventListener('change', function(event) {
+					/*
+					
+					// Get the selected value
+					const selectedValue = event.target.value; 
+
+					// Get the selected option's visible text (Optional)
+					const selectedText = event.target.options[event.target.selectedIndex].text;
+
+					console.log("Selected Value:", selectedValue);
+					console.log("Selected Text:", selectedText);
+					*/
+					
+					// Simply trigger disconnect. On connect it should load altname.
+					if(document.getElementById("connect-signal-server-txt").textContent != "DISCONNECTED") {
+						document.getElementById("connect-signal-server-btn").click();
+					}
+					globalThis.myAltname = event.target.value;
+					console.log(`Altname switched ${globalThis.myAltname}`, "info");
+					
+				});
 				
 			}
 			
@@ -783,6 +809,7 @@
 				this.altname = altname;
 				this.candidate = [];
 				this.offer = null;
+				this.remoteChannel = null;
 				this.label = crypto.randomUUID();
 				this.pc = new RTCPeerConnection({
 					iceServers: [
@@ -906,8 +933,13 @@
 			  this.pc.ontrack = null;
 			  this.pc.ondatachannel = null;
 			  
-			  dataChannels = [this.dataChannel, this.remoteChannel];
-			  // 2. Close all active Data Channels
+			  let dataChannels;
+			  if (this.remoteChannel != null)
+				dataChannels = [this.dataChannel, this.remoteChannel];
+			  else
+			    dataChannels = [this.dataChannel];
+			  
+			  //  Close all active Data Channels
 			  dataChannels.forEach(channel => {
 				if (channel && channel.readyState !== "closed") {
 				  channel.onmessage = null;
@@ -1284,7 +1316,7 @@
 	
 	const mainUI = new MainUI();
 	let signalManager = null;
-	const myAltname = "altname_2";
+	globalThis.myAltname = null;
 	
 	
 	// WORKFLOW
@@ -1379,6 +1411,14 @@
 			}, () => {
 				if (signalManager != null && signalManager.signalingSocket.readyState === WebSocket.OPEN) {
 					signalManager.signalingSocket.close();
+				}
+				if (signalManager != null) {
+					for (let pc_id in signalManager.peerConnections) {
+						signalManager.peerConnections[pc_id].pc.close();
+						signalManager.peerConnections[pc_id].pc = null;
+						delete signalManager.peerConnections[pc_id]
+					}
+					signalManager = null;
 				}
 			});
 		
