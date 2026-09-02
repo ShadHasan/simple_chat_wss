@@ -751,8 +751,9 @@
 		
 		class PeerConnection {
 			states = {
-				"initial": ["closed", "candiate_gathered", "offer_received"],
-				"candiate_gathered": ["candidate_registered", "closed"],
+				"initial": ["closed", "candidate_gathering", "offer_received"],
+				"candidate_gathering": ["candidate_gathering", "candidate_gathered"],
+				"candidate_gathered": ["candidate_registered", "closed"],
 				"candidate_registered": ["offer_forwarded", "answer_forward_decline", "answer_forward_accepted"],
 				
 				"offer_forwarded": ["answer_received_decline", "answer_received_accepted"],
@@ -761,8 +762,7 @@
 				"answer_received_decline": ["closed"],
 				"peer_added": ["channel_established"],
 				
-				"offer_received":  ["candiate_gathered"],
-				"candiate_gathered": ["candidate_registered"],
+				"offer_received":  ["candidate_gathering"],
 				"answer_forward_accepted": ["request_peer_candidate"],
 				"request_peer_candidate": ["peer_added"],
 				"answer_forward_decline": ["closed"],
@@ -773,13 +773,15 @@
 				"closed": null
 			};
 			
+			// Note: peer_added is redundant only to show process as well
+			
 			// expected_state = states[current_state];
 		
 			constructor(mainUI, altname, offerType, label) {
 				this.current_state = "initial";
 				this.mainUI = mainUI;
 				this.altname = altname;
-				this.candidate = null;
+				this.candidate = [];
 				this.offer = null;
 				this.label = crypto.randomUUID();
 				this.pc = new RTCPeerConnection({
@@ -787,9 +789,9 @@
 					{
 						// Correct scheme 'stun:' and precise subdomain + port
 						urls: [
-						'stun:stun.l.google.com:19302',
-						'stun:stun1.l.google.com:19302',
-						'stun:stun2.l.google.com:19302'
+						'	stun:stun.l.google.com:19302',
+							'stun:stun1.l.google.com:19302',
+							'stun:stun2.l.google.com:19302'
 						]
 					}]
 				});
@@ -818,24 +820,25 @@
 					// Save it locally (This starts internal ICE gathering)
 					let offer = this.pc.createOffer();
 					this.pc.setLocalDescription(offer);
-					resolve();
+					resolve(this);
 				});
 				
-				this.ldpOfferSetPromise.then(() => {
+				this.ldpOfferSetPromise.then((pc) => {
 					this.mainUI.appendLog("LDP set with offer is ready", "info");
 				});
 				
-				this.candidateGatherPromise = new Promise((resolve) => {
-					// --- 2. ICE GATHERING ---
-					this.pc.onicecandidate = (event) => {
-						if (event.candidate) {
-							this.mainUI.appendLog("Candidate gathered", "info");
-							this.candidate = event.candidate;
-							this.changeState("candiate_gathered");
-							resolve();
-						}
-					};
-				});
+				// --- 2. ICE GATHERING ---
+				this.pc.onicecandidate = (event) => {
+					if (event.candidate) {
+						this.mainUI.appendLog("Candidate gathering", "info");
+						this.candidate.push(event.candidate);
+						this.changeState("candidate_gathering");
+					}
+					if (event.candidate == null) {
+						this.mainUI.appendLog("Candidate gathered", "info");
+						this.changeState("candidate_gathered");
+					}
+				};
 				
 				
 				// --- 3. CONNECTION CLOSE Log ---
@@ -861,9 +864,9 @@
 					this.pc.setRemoteDescription(new RTCSessionDescription(remoteSessionDescriptionProtocol));
 					let answer = this.pc.createAnswer();
 					this.pc.setLocalDescription(answer);
-					resolve(True);
+					resolve(this);
 				});
-				this.ldpAnswerSetPromise.then(() => {
+				this.ldpAnswerSetPromise.then((pc) => {
 					this.mainUI.appendLog("LDP set with answer is ready", "info");
 				});
 				this.mainUI.appendLog("Promise for LDP set with answer created", "info");
@@ -944,7 +947,7 @@
 			signal_directive = ['register_candidates', 'forward_offer', 'forward_answer',
 				'forward_network_request', 
 				'forward_network_request_response', 'public_altname', 'request_candidate', 
-				'update_my_altname_access', 'pc_init_uuid'];
+				'update_my_altname_access', 'pc_init_uuid', "my_altname"];
 				
 			#possible_network_request = ["accepted", "rejected"];
 		
@@ -966,6 +969,7 @@
 				this.signalingSocket.addEventListener('open', (event) => {
 					this.mainUI.appendLog("Signal socket is ready", "info");
 					this.send(JSON.stringify({
+						"directive": this.signal_directive[9],
 						altname: myAltname
 					}));
 				});
@@ -991,6 +995,9 @@
 					// response.signal_response : {'registered_candidate': [ok, nok], 'altname_candidates': [], 'forwarded_offer': [ok, nok], 'fowarded_answer':[ok, nok]}
 					let response = JSON.parse(event.data);
 					switch(response.signal_response) {
+						case "socket_mapped":
+							this.mainUI.appendLog("Socket mapped", "info");
+							break;
 						case "registered_candidate":
 							if (response.status == "ok") {
 								this.peerConnections[response.pc_uuid].pc.changeState("candidate_registered");
@@ -1005,7 +1012,7 @@
 								this.peerConnections[response.pc_uuid].pc.changeState("offer_forwarded");
 								this.mainUI.appendLog("Forwared offer successfully", "info");
 							} else {
-								this.mainUI.appendLog("Offer forward fail", "error");
+								this.mainUI.appendLog(`Offer forward failed: ${response.error}`, "error");
 							}
 							break;
 						case "fowarded_answer":
@@ -1060,6 +1067,9 @@
 							break;
 						case "pc_initiated_uuid":
 							this.createNewPeerConnection("initiated", response.pc_uuid, response.altname, response.offerType, response.party, response.referID);
+							break;
+						case "generic_error":
+							this.mainUI.appendLog(`Error: ${response.msg}`, "error");
 							break;
 						default:
 							console.log(response);
@@ -1157,23 +1167,19 @@
 				if(access == null)
 					access = "private";
 					
-				this.peerConnections[uniquePCName].pc.candidateGatherPromise.then(() => {
-					return this.peerConnections[uniquePCName].pc.ldpOfferSetPromise;
-				}).then(() => {
-					if (this.signalingSocket.readyState === WebSocket.OPEN) {
-							this.send(JSON.stringify({
-								pc_uuid: uniquePCName,
-								party: this.peerConnections[uniquePCName].party,
-								directive: this.signal_directive[0],
-								client_type: "end",
-								candidate: this.peerConnections[uniquePCName].pc.candidate,
-								sdp: this.peerConnections[uniquePCName].pc.localDescription
-							}));
-						this.mainUI.appendLog("Send candidate registeration", "info");
-					} else {
-						this.mainUI.appendLog(" websocket is not ready", "error");
-					}
-				});
+				if (this.signalingSocket.readyState === WebSocket.OPEN) {
+						this.send(JSON.stringify({
+							pc_uuid: uniquePCName,
+							party: this.peerConnections[uniquePCName].party,
+							directive: this.signal_directive[0],
+							client_type: "end",
+							candidate: this.peerConnections[uniquePCName].pc.candidate,
+							sdp: this.peerConnections[uniquePCName].pc.pc.localDescription
+						}));
+					this.mainUI.appendLog("Send candidate registeration", "info");
+				} else {
+					this.mainUI.appendLog(" websocket is not ready", "error");
+				}
 				
 			}
 			
@@ -1201,7 +1207,7 @@
 							party: "answer",
 							directive: this.signal_directive[2],
 							to_altname: toAltname,
-							sdp: this.peerConnections[uniquePCName].pc.localDescription,
+							sdp: this.peerConnections[uniquePCName].pc.pc.localDescription,
 							offer_accepted: offerAccepted
 						}));
 						this.mainUI.appendLog("Answer sent", "info");
@@ -1290,8 +1296,9 @@
 		let uniquePCName = null;
 		signalManager.createNewPeerConnection("init", null, myAltname, "chat", "offer_party", referID);
 		
-		new Promise(async (resolve) => {
+		new Promise(async (resolve, reject) => {
 			let pc_uuid = null;
+			let retries = 7;
 			while(pc_uuid == null) {
 				for (let p_c in signalManager.peerConnections) {
 					if (signalManager.peerConnections[p_c].referID == referID) {
@@ -1301,23 +1308,38 @@
 				}
 				await sleep(1000);
 			}
-			resolve(pc_uuid);
+			
+			retries = 7;
+			while (retries > 0) {
+				if (signalManager.peerConnections[pc_uuid].pc.getState() == "candidate_gathered") {
+					break;
+				}
+				await sleep(500);
+				retries = retries - 1;
+			}
+			
+			if (signalManager.peerConnections[pc_uuid].pc.getState() == "candidate_gathered")
+				resolve(pc_uuid);
+			else
+				reject("Max tried to wait candidate gather reached");
 		}).then((pc_uuid) => {
 			uniquePCName = pc_uuid;
+			return signalManager.peerConnections[pc_uuid].pc.ldpOfferSetPromise;
+		}).then((pc) => {
 			mainUI.appendLog(`New peer connection UUID ${uniquePCName}`, "info");
 			signalManager.checkAndRegisterCandidate(uniquePCName);
 			
 			
 			return new Promise(async (resolve, reject) => {
-				retries = 7;
+				let retries = 7;
 				while (retries > 0) {
-					if (signalManager.peerConnections[uniquePCName].pc.getState() == "candidate_registered") {
+					if (pc.getState() == "candidate_registered") {
 						break;
 					}
 					await sleep(500);
 					retries = retries - 1;
 				}
-				if (signalManager.peerConnections[uniquePCName].pc.getState() == "candidate_registered")
+				if (pc.getState() == "candidate_registered")
 					resolve();
 				else 
 					reject("Max tries reach, candidate not registered");

@@ -1,4 +1,5 @@
 import uuid
+import asyncio
 import datetime
 
 class SignalManager:
@@ -106,7 +107,11 @@ class SignalManager:
         }
         
     def iam(self, data):
-        self.socket_altname[data["websocket"]] = data[altname]
+        self.socket_altname[data["websocket"]] = data["altname"]
+        data["signal_response"] = "socket_mapped"
+        del data["directive"]
+        del data["websocket"]
+        return data
         
         
     def initPeerConnectionUUID(self, data):
@@ -193,19 +198,27 @@ class SignalManager:
         try:
             forwarding_wss = {}
             if data["directive"] == "forward_offer":
+                not_forwarded = True
                 data["directive"] = "incoming_offer"
                 to_altname = data["to_altname"]
                 for ws in self.socket_altname:
                     if self.socket_altname[ws] == to_altname:
+                        not_forwarded = False
                         await ws.send_json(data)
-                signal_response = "fowarded_offer"
+                signal_response = "forwarded_offer"
+                if not_forwarded:
+                    data["error"] = "Offer failed, altname is not online"
+                    signal_response = "forwarded_offer"
+                    raise RuntimeError("altname is not online")
+                signal_response = "forwarded_offer"
             elif data["directive"] == "forward_answer":
                 data["directive"] = "incoming_answer"
                 
                 if SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"].get("altname") is None:
                     SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"]["altname"] = to_altname
                     SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"]["websocket"] = data["websocket"]
-                    SignalManager.allocate_pc_uuid[data["pc_uuid"]]["offer_party"]["websocket"].send_json(data)
+                    await SignalManager.allocate_pc_uuid[data["pc_uuid"]]["offer_party"]["websocket"].send_json(data)
+                    signal_response = "fowarded_answer"
                 else:
                     signal_response = "fowarded_answer"
                     data["error"] = "already responded by other client"
@@ -280,7 +293,7 @@ class SignalManager:
         return data
         
         
-    def signal_directive_switch(self, websocket, data):
+    async def signal_directive_switch(self, websocket, data):
         # Please note: if signal socket gone, simply candidate is loss. Hence
         # client has to connect signal socket and register candidate to its
         # signal socket.
@@ -312,16 +325,20 @@ class SignalManager:
                 "call": self.get_candidate_by_pc_uuid
             },
             "forward_offer": {
-                "call": self.forward_signal_to
+                "call": self.forward_signal_to,
+                "type": "async"
             },
             "forward_answer": {
-                "call": self.forward_signal_to
+                "call": self.forward_signal_to,
+                "type": "async"
             },
             "forward_network_request": {
-                "call": self.forward_signal_to
+                "call": self.forward_signal_to,
+                "type": "async"
             },
             "forward_network_request_response": {
-                "call": self.forward_signal_to
+                "call": self.forward_signal_to,
+                "type": "async"
             },
             "public_altname": {
                 "call": self.get_public_altname
@@ -334,6 +351,9 @@ class SignalManager:
             }
         }
         data["websocket"] = websocket
-        return signal_processor[data["directive"]]["call"](data)
+        if signal_processor[data["directive"]].get("type") == "async":
+            return await signal_processor[data["directive"]]["call"](data)
+        else:
+            return signal_processor[data["directive"]]["call"](data)
 		
 	

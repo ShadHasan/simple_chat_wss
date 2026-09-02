@@ -139,7 +139,7 @@ async def websocket_signal(websocket: WebSocket):
                 data = await websocket.receive_text()
                 data_json = json.loads(data)
                 print(data_json)
-                result = signal_manager.signal_directive_switch(websocket, data_json)
+                result = await signal_manager.signal_directive_switch(websocket, data_json)
                 await websocket.send_json(result)
             except Exception as e:
                 await websocket.send_json({"Server error": "{}".format(str(e))})
