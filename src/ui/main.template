@@ -821,6 +821,42 @@
 		}
 		
 		class PeerConnection {
+			offerPartyStates = {
+				"initial": ["closed", "candidate_gathering"],
+				"candidate_gathering": ["candidate_gathering", "candidate_gathered"],
+				"candidate_gathered": ["candidate_registered", "closed"],
+				"candidate_registered": ["offer_forwarded"],
+				
+				"offer_forwarded": ["answer_received_decline", "answer_received_accepted"],
+				"answer_received_decline": ["closed"],
+				"answer_received_accepted": ["request_peer_candidate"],
+				"request_peer_candidate": ["peer_added"],
+				
+				"peer_added": ["channel_established"],
+				
+				"channel_established": ["bye"],
+				"bye": ["closed"],
+				"closed": null
+			};
+			
+			answerPartyStates = {
+				"initial": ["closed", "offer_received"],
+				"offer_received":  ["candidate_gathering", "answer_forward_decline"],
+				"candidate_gathering": ["candidate_gathering", "candidate_gathered"],
+				"candidate_gathered": ["request_peer_candidate"],
+				"request_peer_candidate": ["peer_added"],
+				"peer_added": ["candidate_registered", "closed"],
+				"candidate_registered": ["answer_forward_accepted"],
+				
+				"answer_forward_decline": ["closed"],
+				"answer_forward_accepted": ["channel_established"],
+				
+				"channel_established": ["bye"],
+				"bye": ["closed"],
+				"closed": null
+			}
+			
+			/* deprecated cause more problem
 			states = {
 				"initial": ["closed", "candidate_gathering", "offer_received"],
 				"candidate_gathering": ["candidate_gathering", "candidate_gathered"],
@@ -843,12 +879,10 @@
 				"bye": ["closed"],
 				"closed": null
 			};
+			*/
 			
-			// Note: peer_added is redundant only to show process as well
-			
-			// expected_state = states[current_state];
 		
-			constructor(mainUI, altname, offerType, label) {
+			constructor(mainUI, altname, offerType, label, party) {
 				this.current_state = "initial";
 				this.mainUI = mainUI;
 				this.altname = altname;
@@ -856,6 +890,16 @@
 				this.offer = null;
 				this.remoteChannel = null;
 				this.label = crypto.randomUUID();
+				
+				switch (party) {
+					case "answer_party":
+						this.states = answerPartyStates;
+						break;
+					case "offer_party":
+						this.states = offerPartyStates;
+						break;
+				}
+				
 				this.pc = new RTCPeerConnection({
 					iceServers: [
 					{
@@ -1199,7 +1243,7 @@
 					// case initiated will be automatically after signal response.
 					case "initiated":
 						this.mainUI.appendLog(`Received peer id: ${uniquePCName}`, "info");
-						let pc = new PeerConnection(this.mainUI, altname, offerType);
+						let pc = new PeerConnection(this.mainUI, altname, offerType, null, party);
 						this.peerConnections[uniquePCName] = {
 							pc: pc,
 							party: party,
