@@ -187,11 +187,14 @@ class SignalManager:
             
             candidate = SignalManager.allocate_pc_uuid[pc_uuid][party]["candidate"]
             sdp = SignalManager.allocate_pc_uuid[pc_uuid][party]["ldp_sdp"]
+            signal_response = "pc_candidate"
         except Exception as e:
-            print("Exception occured in fetching candidate: {}".format(e))
+            signal_response = "generic_error"
+            data["error"] = "Exception occured in fetching candidate: {}".format(e)
+            print(data["error"])
         del data["directive"]
         del data["websocket"]
-        data["signal_response"] = "altname_candidate"
+        data["signal_response"] = signal_response
         data["candidate"] = candidate
         data["sdp"] = sdp
         return data
@@ -256,10 +259,11 @@ class SignalManager:
                 
             status = "ok"
         except Exception as e:
+            status = "nok"
             signal_response = "generic_error"
             data["error"] = "Exception occured in {}: {}".format(data["directive"], e)
             print(data["error"])
-            status = "nok"
+            
         del data["directive"]
         if data.get("websocket"):  del data["websocket"]
         data["signal_response"] = signal_response
