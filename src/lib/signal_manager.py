@@ -202,6 +202,8 @@ class SignalManager:
             if data["directive"] == "forward_offer":
                 not_forwarded = True
                 data["directive"] = "incoming_offer"
+                data["from_altname"] = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["offer_party"]["altname"]
+                data["sdp"] = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["offer_party"]["ldp_sdp"]
                 to_altname = data["to_altname"]
                 for ws in self.socket_altname:
                     if self.socket_altname[ws] == to_altname:

@@ -245,6 +245,34 @@
 		  box-shadow: 0 0 1px #4cd964;
 		}
 
+		.marquee-container {
+			overflow: hidden; /* Hide the text when it goes outside the box */
+			white-space: nowrap;
+			background: green;
+			/* color: #fff;
+			padding: 10px 0; */
+		}
+
+		.marquee-text {
+			display: inline-block;
+			/* padding-left: 100%;  Push the text initially off-screen to the right */
+			animation: scroll-left 2s linear infinite;
+		  }
+
+		  /* Define the movement */
+		@keyframes scroll-left {
+			0% { transform: translate3d(-50%, 0, 0); }
+			100% { transform: translate3d(50%, 0, 0); }
+		}
+
+		  /* Respect users who prefer no motion for accessibility */
+		@media (prefers-reduced-motion: reduce) {
+			.marquee-text {
+			  animation: none;
+			  /*padding-left: 10px;*/
+			  white-space: normal;
+			}
+		}
 		
     </style>
 	<!-- Stylesheet Tag (Placed inside <head>) -->
@@ -759,6 +787,23 @@
 				return appendMessage;
 			}
 			
+			incomingOfferNotificationFactory(altname) {
+				return `<div style="background:green; color:white; display:inline-flex; align-items:center; gap:10px; padding:5px 10px; border-radius:4px; font-family:sans-serif;">
+					<span>Incoming Offer <span class="marquee-container">
+						<span class="marquee-text">...</span>
+					</span>
+					<button id="incoming-${altname}-accept-btn" style="width:24px; height:24px; border-radius:50%; border:none; background:white; color:green; cursor:pointer; font-weight:bold; padding:0;margin:5px;">✓</button>
+					<button id="incoming-${altname}-reject-btn" style="width:24px; height:24px; border-radius:50%; border:none; background:white; color:red; cursor:pointer; font-weight:bold; padding:0;margin:5px;">✕</button>
+				</div>`;
+			}
+			
+			connectedCallDisplayFactory(altname) {
+				return `<div style="background:red; color:white; display:inline-flex; align-items:center; gap:10px; padding:5px 10px; border-radius:4px; font-family:sans-serif;">
+					<span>connected</span> 
+					<button id="incoming-${altname}-connected-btn" style="width:24px; height:24px; border-radius:50%; border:none; background:white; color:red; cursor:pointer; font-weight:bold; padding:0;margin:5px;">✕</button>
+				</div>`;
+			}
+			
 			testLog() {
 				// Seed initial display entries
 				this.logger.appendLog("System initializing execution tree...", "info");
@@ -1176,6 +1221,7 @@
 			}
 			
 			loadIncomingOffer() {
+				
 			}
 			
 			loadChatWindowLineEntry() {
@@ -1388,11 +1434,86 @@
 	}
 	
 	function workflowIncomingOffer(incomingOfferRequest) {
-		this.peerConnections[incomingOfferRequest.pc_uuid]["party"] = "answering";
-		this.peerConnections[incomingOfferRequest.pc_uuid].pc.createAnwerPromise(incomingOfferRequest.sdp);
+		mainUI.appendPanelEntry("offer-incoming-panel", 
+			mainUI.incomingOfferNotificationFactory(incomingOfferRequest.from_altname)
+		);
+		
+		new Promise(async(resolve, reject) => {
+			let incomingAcceptBtn = null;
+			let incomingRejectBtn = null;
+			let tries = 7
+			
+			while(tries > 0) {
+				await sleep(400);
+				incomingAcceptBtn = document.getElementById(`incoming-${incomingOfferRequest.from_altname}-accept-btn`);
+				incomingRejectBtn = document.getElementById(`incoming-${incomingOfferRequest.from_altname}-reject-btn`);
+				if (incomingAcceptBtn != null && incomingRejectBtn != null)
+					break;
+			}
+			incomingAcceptBtn.addEventListener("click", (event) => {
+				workflowIncomingOfferAccepted();
+			});
+			
+			incomingRejectBtn.addEventListener("click", (event) => {
+				workflowIncomingOfferRejected();
+			});
+		});
+		
+		// this.peerConnections[incomingOfferRequest.pc_uuid]["party"] = "answering";
+		// this.peerConnections[incomingOfferRequest.pc_uuid].pc.createAnwerPromise(incomingOfferRequest.sdp);
 	}
 	
+	function workflowIncomingOfferAccepted(incomingOfferRequest) {
 	
+		new Promise(async(resolve, reject) => {
+			signalManager.createNewPeerConnection("initiated", incomingOfferRequest.pc_uuid, incomingOfferRequest.to_altname, offerType, "answer_party", null);
+				
+			let retries = 7;
+			while (retries > 0) {
+				if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "candidate_gathered") {
+					break;
+				}
+				await sleep(500);
+				retries = retries - 1;
+			}
+			
+			if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "candidate_gathered")
+				resolve();
+			else
+				reject("Max tried to wait candidate gather reached");
+		}).then(() => {
+			signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.createAnwerPromise(incomingOfferRequest.sdp);
+			return signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.ldpAnswerSetPromise;
+		}).then((pc) => {
+			mainUI.appendLog(`New peer connection UUID ${incomingOfferRequest.pc_uuid}`, "info");
+			signalManager.checkAndRegisterCandidate(incomingOfferRequest.pc_uuid);
+			
+			
+			return new Promise(async (resolve, reject) => {
+				let retries = 7;
+				while (retries > 0) {
+					if (pc.getState() == "candidate_registered") {
+						break;
+					}
+					await sleep(500);
+					retries = retries - 1;
+				}
+				if (pc.getState() == "candidate_registered")
+					resolve();
+				else 
+					reject("Max tries reach, candidate not registered");
+			});
+		}).then(() => {
+			
+		}).catch((error) => {
+			mainUI.appendLog(error, "error");
+		});;
+		
+	}
+	
+	function workflowIncomingOfferRejected() {
+	
+	}
 	
 	// Start point of execution
 	
