@@ -792,8 +792,8 @@
 					<span>Incoming Offer <span class="marquee-container">
 						<span class="marquee-text">...</span>
 					</span>
-					<button id="incoming-${altname}-accept-btn" style="width:24px; height:24px; border-radius:50%; border:none; background:white; color:green; cursor:pointer; font-weight:bold; padding:0;margin:5px;">✓</button>
-					<button id="incoming-${altname}-reject-btn" style="width:24px; height:24px; border-radius:50%; border:none; background:white; color:red; cursor:pointer; font-weight:bold; padding:0;margin:5px;">✕</button>
+					<button id="incoming-${altname}-accept-btn" style="width:24px; height:24px; border-radius:50%; border:none; background:white; color:green; cursor:pointer; font-weight:bold; padding:0;margin:5px;">&#10003;</button>
+					<button id="incoming-${altname}-reject-btn" style="width:24px; height:24px; border-radius:50%; border:none; background:white; color:red; cursor:pointer; font-weight:bold; padding:0;margin:5px;">&#10005;</button>
 				</div>`;
 			}
 			
@@ -1053,6 +1053,7 @@
 				
 				 // Listener for If there's an error with the WebSocket connection
                 this.signalingSocket.addEventListener('error', (error) => {
+					console.error(error);
 					this.mainUI.appendLog(`WebSocket Error:, ${error}`, "error");
 
                 });
@@ -1101,7 +1102,7 @@
 							break;
 						case "incoming_offer":
 							this.mainUI.appendLog("Incoming offer", "info");
-							offerIncomingWorkflow(response);
+							workflowIncomingOffer(response);
 							break;
 						case "incoming_answer":
 							this.mainUI.appendLog("Incoming answer", "info");
@@ -1146,11 +1147,11 @@
 							this.createNewPeerConnection("initiated", response.pc_uuid, response.altname, response.offerType, response.party, response.referID);
 							break;
 						case "generic_error":
-							this.mainUI.appendLog(`Error: ${response.msg}`, "error");
+							this.mainUI.appendLog(`Error: ${response.error}`, "error");
 							break;
 						default:
 							console.log(response);
-							this.mainUI.appendLog(`Error: ${response.Error}`, "error");
+							this.mainUI.appendLog(`Error: ${response.error}`, "error");
 							this.mainUI.appendLog("Unknown signal response", "error");
 							break;
 					}
@@ -1263,7 +1264,7 @@
 			
 			// This will trigger manually. Hence it is not part of automation.
 			sendOffer(uniquePCName, toAltname) {
-				this.mainUI.appendLog("Sending offer", "info");
+				this.mainUI.appendLog(`Sending offer to ${toAltname}`, "info");
 				this.send(JSON.stringify({
 					pc_uuid: uniquePCName,
 					party: this.peerConnections[uniquePCName].party,
@@ -1369,7 +1370,7 @@
 	
 	// workflow of sending offer part of connect
 	function workflowConnect(altname) {
-		mainUI.appendLog(altname, "info");
+		mainUI.appendLog(`Connecting to ${altname}`, "info");
 		let referID = crypto.randomUUID();
 		let uniquePCName = null;
 		signalManager.createNewPeerConnection("init", null, myAltname, "chat", "offer_party", referID);
@@ -1451,11 +1452,11 @@
 					break;
 			}
 			incomingAcceptBtn.addEventListener("click", (event) => {
-				workflowIncomingOfferAccepted();
+				workflowIncomingOfferAccepted(incomingOfferRequest);
 			});
 			
 			incomingRejectBtn.addEventListener("click", (event) => {
-				workflowIncomingOfferRejected();
+				workflowIncomingOfferRejected(incomingOfferRequest);
 			});
 		});
 		
@@ -1466,7 +1467,7 @@
 	function workflowIncomingOfferAccepted(incomingOfferRequest) {
 	
 		new Promise(async(resolve, reject) => {
-			signalManager.createNewPeerConnection("initiated", incomingOfferRequest.pc_uuid, incomingOfferRequest.to_altname, offerType, "answer_party", null);
+			signalManager.createNewPeerConnection("initiated", incomingOfferRequest.pc_uuid, incomingOfferRequest.to_altname, "chat", "answer_party", null);
 				
 			let retries = 7;
 			while (retries > 0) {
@@ -1504,14 +1505,14 @@
 					reject("Max tries reach, candidate not registered");
 			});
 		}).then(() => {
-			
+			// sendAnswer
 		}).catch((error) => {
 			mainUI.appendLog(error, "error");
 		});;
 		
 	}
 	
-	function workflowIncomingOfferRejected() {
+	function workflowIncomingOfferRejected(incomingOfferRequest) {
 	
 	}
 	
@@ -1527,6 +1528,9 @@
 			"connect-signal-server-txt", 
 			"CONNECTED", 
 			"DISCONNECTED", () => {
+				if (myAltname == null) {
+					myAltname = document.getElementById('altname_list').value;
+				}
 				signalManager = new SignalManager(mainUI, myAltname);
 				signalManager.asyncInit();
 			}, () => {

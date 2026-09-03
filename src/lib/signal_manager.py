@@ -200,23 +200,22 @@ class SignalManager:
         try:
             forwarding_wss = {}
             if data["directive"] == "forward_offer":
-                not_forwarded = True
-                data["directive"] = "incoming_offer"
+                forwarded = False
+                data["signal_response"] = "incoming_offer"
                 data["from_altname"] = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["offer_party"]["altname"]
                 data["sdp"] = SignalManager.allocate_pc_uuid[data["pc_uuid"]]["offer_party"]["ldp_sdp"]
                 to_altname = data["to_altname"]
-                for ws in self.socket_altname:
+                for ws in self.socket_altname.keys():
                     if self.socket_altname[ws] == to_altname:
-                        not_forwarded = False
+                        forwarded = True
+                        del data["websocket"]
                         await ws.send_json(data)
                 signal_response = "forwarded_offer"
-                if not_forwarded:
-                    data["error"] = "Offer failed, altname is not online"
-                    signal_response = "forwarded_offer"
+                if not forwarded:
+                    data["error"] = "Offer failed, altname is not online {}".format(to_altname)
                     raise RuntimeError("altname is not online")
-                signal_response = "forwarded_offer"
             elif data["directive"] == "forward_answer":
-                data["directive"] = "incoming_answer"
+                data["signal_response"] = "incoming_answer"
                 
                 if SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"].get("altname") is None:
                     SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"]["altname"] = to_altname
@@ -257,10 +256,12 @@ class SignalManager:
                 
             status = "ok"
         except Exception as e:
-            print("Exception occured in {}: {}".format(data["directive"], e))
+            signal_response = "generic_error"
+            data["error"] = "Exception occured in {}: {}".format(data["directive"], e)
+            print(data["error"])
             status = "nok"
         del data["directive"]
-        del data["websocket"]
+        if data.get("websocket"):  del data["websocket"]
         data["signal_response"] = signal_response
         data["status"] = status
         return data
