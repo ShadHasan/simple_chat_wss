@@ -829,8 +829,7 @@
 				
 				"offer_forwarded": ["answer_received_decline", "answer_received_accepted"],
 				"answer_received_decline": ["closed"],
-				"answer_received_accepted": ["request_peer_candidate"],
-				"request_peer_candidate": ["peer_added"],
+				"answer_received_accepted": ["peer_added"],
 				
 				"peer_added": ["channel_established"],
 				
@@ -965,13 +964,19 @@
 				this.pc.onconnectionstatechange = () => {
 				  switch (this.pc.connectionState) {
 					case "disconnected":
+						this.mainUI.appendLog("Connection dropped. Triggering automatic cleanup.", "error");
+						this.close();
+						break;
 					case "failed":
-					  this.mainUI.appendLog("Network dropped. Triggering automatic cleanup.", "error");
-					  this.close();
-					  break;
+						this.mainUI.appendLog("Network dropped by failure. Triggering automatic cleanup.", "error");
+						this.close();
+						break;
 					case "closed":
-					  this.mainUI.appendLog("WebRTC Peer Connection fully destroyed.", "info");
-					  break;
+						this.mainUI.appendLog("WebRTC Peer Connection fully destroyed.", "info");
+						break;
+					case "connected":
+						this.changeState("channel_established");
+						break;
 				  }
 				};
 				
@@ -1190,7 +1195,7 @@
 							break;
 						case "incoming_answer":
 							this.mainUI.appendLog("Incoming answer", "info");
-							this.peerConnections[response.pc_uuid].pc.updateOfferLDP_RDP(response.sdp);
+							workflowIncomingAnswer(response);
 							break;
 						case "pc_candidate":
 							this.mainUI.appendLog("Peer candidate received", "info");
@@ -1362,31 +1367,16 @@
 			}
 			
 			// This will trigger manually. Hence it is not part of automation.
-			sendAnswer(uniquePCName, toAltname, offerAccepted) {
+			sendAnswer(uniquePCName, offerAccepted) {
 				// Here answer can be done to reject offer for different reason.
 				this.mainUI.appendLog(`Sending answer for offer with ${offerAccepted}`, "info");
-				if (offerAccepted) {
-					this.peerConnections[uniquePCName].pc.ldpAnswerSetPromise.then(()=>{
-						this.send(JSON.stringify({
-							pc_uuid: uniquePCName,
-							party: "answer",
-							directive: this.signal_directive[2],
-							to_altname: toAltname,
-							sdp: this.peerConnections[uniquePCName].pc.pc.localDescription,
-							offer_accepted: offerAccepted
-						}));
-						this.mainUI.appendLog("Answer sent", "info");
-					});
-				} else {
-					this.send(JSON.stringify({
-						pc_uuid: uniquePCName,
-						directive: this.signal_directive[2],
-						to_altname: toAltname,
-						sdp: null,
-						offer_accepted: offerAccepted
-					}));
-					this.mainUI.appendLog("Answer sent", "info");
-				}
+				this.send(JSON.stringify({
+					pc_uuid: uniquePCName,
+					party: this.peerConnections[uniquePCName].party,
+					directive: this.signal_directive[2],
+					offer_accepted: offerAccepted
+				}));
+				this.mainUI.appendLog("Answer sent", "info");
 			}
 			
 			requestPeerCandidate(uniquePCName, ofParty) {
@@ -1524,6 +1514,30 @@
 	}
 	
 	function workflowIncomingAnswer(incomingAnswerRequest) {
+		mainUI.appendLog("Incomig anwer workflow initiated...", "info");
+		console.log(incomingAnswerRequest);
+		if (incomingAnswerRequest.offer_accepted) {
+			mainUI.appendLog("Offer accepted...", "info");
+			signalManager.peerConnections[incomingAnswerRequest.pc_uuid].pc.changeState("answer_received_accepted");
+			signalManager.peerConnections[incomingAnswerRequest.pc_uuid].pc.updateOfferLDP_RDP(incomingAnswerRequest.sdp);
+			
+			signalManager.peerConnections[incomingAnswerRequest.pc_uuid].pc.ldpOfferSetPromise
+			.then(() => {
+				let candidatesPromiseArray = [];
+				for (let i=0; i<incomingAnswerRequest.candidate.length; i++)
+					candidatesPromiseArray
+					.push(signalManager.peerConnections[incomingAnswerRequest.pc_uuid].pc.pc.addIceCandidate(
+						new RTCIceCandidate(incomingAnswerRequest.candidate[i])));
+				Promise.all(candidatesPromiseArray)
+				.then(() => {
+					signalManager.peerConnections[incomingAnswerRequest.pc_uuid].pc.changeState("peer_added");
+				});
+			});
+		} else {
+			mainUI.appendLog("Offer rejected...", "info");
+			signalManager.peerConnections[incomingAnswerRequest.pc_uuid].pc.changeState("answer_received_decline");
+			// start peer connection closure
+		}
 	}
 	
 	function workflowIncomingOffer(incomingOfferRequest) {
@@ -1632,7 +1646,9 @@
 					reject("Max tries reach, candidate not registered");
 			});
 		}).then(() => {
-			// sendAnswer
+			mainUI.appendLog("Sending anwer...", "info");
+			signalManager.sendAnswer(incomingOfferRequest.pc_uuid, true);
+			mainUI.appendLog("Answer sent...", "info");
 		}).catch((error) => {
 			mainUI.appendLog("Workflow incoming offer accepted failed", "error");
 			mainUI.appendLog(error, "error");
@@ -1641,7 +1657,9 @@
 	}
 	
 	function workflowIncomingOfferRejected(incomingOfferRequest) {
-	
+		mainUI.appendLog("Sending anwer...", "info");
+		signalManager.sendAnswer(incomingOfferRequest.pc_uuid, true);
+		mainUI.appendLog("Answer sent...", "info");
 	}
 	
 	// Start point of execution

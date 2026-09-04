@@ -141,6 +141,13 @@ class SignalManager:
 
     def register_websocket_candidate(self, data):
         try:
+            if data["party"] == "answer_party":
+                if SignalManager.allocate_pc_uuid[data["pc_uuid"]][data["party"]].get("websocket") is None:
+                    SignalManager.allocate_pc_uuid[data["pc_uuid"]][data["party"]]["websocket"] = data["websocket"]
+                    
+                else:
+                    data["error"] = "already responded by other client"
+                    raise RuntimeError("already responded")
             SignalManager.allocate_pc_uuid[data["pc_uuid"]][data["party"]]["candidate"] = data["candidate"]
             SignalManager.allocate_pc_uuid[data["pc_uuid"]][data["party"]]["ldp_sdp"] = data["sdp"]
             data["status"] = "ok"
@@ -211,7 +218,8 @@ class SignalManager:
                 for ws in self.socket_altname.keys():
                     if self.socket_altname[ws] == to_altname:
                         forwarded = True
-                        del data["websocket"]
+                        SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"]["altname"] = to_altname
+                        if data.get("websocket") is not None:  del data["websocket"]
                         await ws.send_json(data)
                 signal_response = "forwarded_offer"
                 if not forwarded:
@@ -219,15 +227,21 @@ class SignalManager:
                     raise RuntimeError("altname is not online")
             elif data["directive"] == "forward_answer":
                 data["signal_response"] = "incoming_answer"
+                pc_uuid = data["pc_uuid"]
                 
-                if SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"].get("altname") is None:
-                    SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"]["altname"] = to_altname
-                    SignalManager.allocate_pc_uuid[data["pc_uuid"]]["answer_party"]["websocket"] = data["websocket"]
-                    await SignalManager.allocate_pc_uuid[data["pc_uuid"]]["offer_party"]["websocket"].send_json(data)
+                if SignalManager.allocate_pc_uuid[pc_uuid]["answer_party"]["websocket"] == data["websocket"]:
+                    from_altname = SignalManager.allocate_pc_uuid[pc_uuid]["answer_party"]["altname"]
+                    to_altname = SignalManager.allocate_pc_uuid[pc_uuid]["offer_party"]["altname"]
+                    del data["websocket"]
+                    data["sdp"] = SignalManager.allocate_pc_uuid[data["pc_uuid"]][data["party"]]["ldp_sdp"]
+                    data["candidate"] = SignalManager.allocate_pc_uuid[data["pc_uuid"]][data["party"]]["candidate"]
+                    await SignalManager.allocate_pc_uuid[pc_uuid]["offer_party"]["websocket"].send_json(data)
+                    if not data["offer_accepted"]:
+                        del SignalManager.allocate_pc_uuid[pc_uuid]
                     signal_response = "fowarded_answer"
                 else:
                     signal_response = "fowarded_answer"
-                    data["error"] = "already responded by other client"
+                    data["error"] = "Illegal answer"
                     raise RuntimeError("already responded")
                 
             
