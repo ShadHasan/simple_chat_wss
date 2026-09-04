@@ -841,11 +841,11 @@
 			
 			answerPartyStates = {
 				"initial": ["closed", "offer_received"],
-				"offer_received":  ["candidate_gathering", "answer_forward_decline"],
+				"offer_received":  ["request_peer_candidate", "answer_forward_decline"],
+				"request_peer_candidate": ["candidate_gathering"],
+				"peer_added": ["candidate_registered"],
 				"candidate_gathering": ["candidate_gathering", "candidate_gathered"],
-				"candidate_gathered": ["request_peer_candidate"],
-				"request_peer_candidate": ["peer_added"],
-				"peer_added": ["candidate_registered", "closed"],
+				"candidate_gathered": ["peer_added"],
 				"candidate_registered": ["answer_forward_accepted"],
 				
 				"answer_forward_decline": ["closed"],
@@ -855,6 +855,8 @@
 				"bye": ["closed"],
 				"closed": null
 			}
+			
+			executedStates = [];
 			
 			/* deprecated cause more problem
 			states = {
@@ -1005,6 +1007,25 @@
 				
 				this.ldpAnswerSetPromise
 				.then((pc) => {
+					let retries = 30;
+					
+					return new Promise(async (resolve, reject) => {
+						while (retries > 0) {
+							if (pc.getState() == "candidate_gathered") {
+								break;
+							}
+							await sleep(1000);
+							retries = retries - 1;
+						}
+						
+						if (pc.getState() == "candidate_gathered")
+							resolve();
+						else
+							reject("Max tried to wait candidate gathered reached");
+					});
+					
+				})
+				.then((pc) => {
 					let candidatesPromiseArray = [];
 					for (let i=0; i<candidates.length; i++)
 						candidatesPromiseArray.push(this.pc.addIceCandidate(new RTCIceCandidate(candidates[i])));
@@ -1065,7 +1086,9 @@
 			}
 			
 			changeState(newState) {
+				this.mainUI.appendLog(`Attempt to move state: ${this.current_state}->${newState}`, "debug");
 				if (this.states[this.current_state].includes(newState)) {
+					this.executedStates.push(`${this.current_state}->${newState}`);
 					this.current_state = newState;
 				} else {
 					this.mainUI.appendLog(`Unexpected new state: ${newState} from state: ${this.current_state}`, "error");
@@ -1540,17 +1563,17 @@
 				
 			let retries = 14;
 			while (retries > 0) {
-				if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "candidate_gathered") {
+				if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "offer_received") {
 					break;
 				}
 				await sleep(1000);
 				retries = retries - 1;
 			}
 			
-			if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "candidate_gathered")
+			if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "offer_received")
 				resolve();
 			else
-				reject("Max tried to wait candidate gather reached");
+				reject("Max tried to wait peer connection initialization reached");
 		}).then(() => {
 			signalManager.requestPeerCandidate(incomingOfferRequest.pc_uuid, "offer_party");
 			
@@ -1575,7 +1598,7 @@
 			pcm.pc.addPeerCandidate(pcm.candidate, pcm.remote_sdp);
 			
 			return new Promise (async (resolve, reject) => {
-				let retries = 14;
+				let retries = 50;
 				while (retries > 0) {
 					if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "peer_added") {
 						break;
@@ -1589,7 +1612,7 @@
 				else
 					reject("Max tried to wait peer candidate addition reached");
 			});
-		}).then((pc) => {
+		}).then(() => {
 			mainUI.appendLog(`New peer connection UUID ${incomingOfferRequest.pc_uuid}`, "info");
 			signalManager.checkAndRegisterCandidate(incomingOfferRequest.pc_uuid);
 			
@@ -1597,13 +1620,13 @@
 			return new Promise(async (resolve, reject) => {
 				let retries = 14;
 				while (retries > 0) {
-					if (pc.getState() == "candidate_registered") {
+					if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "candidate_registered") {
 						break;
 					}
 					await sleep(1000);
 					retries = retries - 1;
 				}
-				if (pc.getState() == "candidate_registered")
+				if (signalManager.peerConnections[incomingOfferRequest.pc_uuid].pc.getState() == "candidate_registered")
 					resolve();
 				else 
 					reject("Max tries reach, candidate not registered");
