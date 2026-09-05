@@ -152,13 +152,18 @@ async def websocket_signal(websocket: WebSocket):
 @app.get("/static")
 @app.get("/static/{tpath:path}")
 def static_files(tpath=None):
+    headers = {}
     if tpath:
         typ = tpath.split(os.sep)
         print("==> ", typ)
+        if typ == "javascript":
+            headers["content-type"] = "text/javascript"
         content = static_loader.get_template(typ[0], typ[1])
     else:
         content = static_loader.list_dir()
     response = Response(content=content, status_code=200)
+    for k in headers.keys():
+        response.headers[k] = headers[k]
     return response
 
 

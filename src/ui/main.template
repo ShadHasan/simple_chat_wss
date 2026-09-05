@@ -279,6 +279,9 @@
 	<link rel="stylesheet" href="/static/style/logger.css">
 
 	<!-- JavaScript Tag (Placed inside <head> or before </body>) -->
+	<script src="/static/javascript/adapter.js" defer></script>
+	
+	<!-- JavaScript Tag (Placed inside <head> or before </body>) -->
 	<script src="/static/javascript/logger.js" defer></script>
 	
 
@@ -950,8 +953,17 @@
 				this.pc.onicecandidate = (event) => {
 					if (event.candidate) {
 						this.mainUI.appendLog("Candidate gathering", "info");
-						this.candidate.push(event.candidate);
-						this.changeState("candidate_gathering");
+						// This will allow udp candidate only and ipv4
+						if (event.candidate.candidate.toLowerCase().includes("udp") && !event.candidate.candidate.toLowerCase().includes(".local")) {
+							this.candidate[0] = new RTCIceCandidate({
+								candidate: event.candidate.candidate,
+								sdpMid: event.candidate.sdpMid !== undefined && event.candidate.sdpMid !== null ? String(event.candidate.sdpMid) : "0",
+								sdpMLineIndex: event.candidate.sdpMLineIndex !== undefined && event.candidate.sdpMLineIndex !== null ? Number(event.candidate.sdpMLineIndex) : 0,
+							});
+							this.changeState("candidate_gathering");
+						} else {
+							this.mainUI.appendLog("Ignoring invalid candidate gathering", "debug");
+						}
 					}
 					if (event.candidate == null) {
 						this.mainUI.appendLog("Candidate gathered", "info");
@@ -1031,6 +1043,8 @@
 					
 				})
 				.then((pc) => {
+					console.log("answer candidate", this.candidate);
+					console.log("offer candidate", candidates);
 					let candidatesPromiseArray = [];
 					for (let i=0; i<candidates.length; i++)
 						candidatesPromiseArray.push(this.pc.addIceCandidate(new RTCIceCandidate(candidates[i])));
@@ -1470,12 +1484,12 @@
 				await sleep(1000);
 			}
 			
-			retries = 7;
+			retries = 50;
 			while (retries > 0) {
 				if (signalManager.peerConnections[pc_uuid].pc.getState() == "candidate_gathered") {
 					break;
 				}
-				await sleep(500);
+				await sleep(1000);
 				retries = retries - 1;
 			}
 			
